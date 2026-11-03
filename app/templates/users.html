@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block heading %}User Management{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head" style="margin-bottom: 14px;">
+    <h2>Users List</h2>
+    <div style="display: flex; gap: 10px; align-items: center;">
+      <a class="button" href="/users/export?search={{ search }}&role={{ role }}&status={{ status }}">📥 Export CSV</a>
+    </div>
+  </div>
+  <form method="get" class="filter-form" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;">
+    <input name="search" value="{{ search }}" placeholder="Search name, email, or phone..." style="flex: 1; min-width: 200px;">
+    <select name="role">
+      <option value="">All roles</option>
+      {% for value in ['CLIENT','CLEANER','ADMIN'] %}
+      <option value="{{ value }}" {{ 'selected' if role == value else '' }}>{{ value.title() }}</option>
+      {% endfor %}
+    </select>
+    <select name="status">
+      <option value="">All statuses</option>
+      {% for value in ['ACTIVE','PENDING','SUSPENDED','DISABLED'] %}
+      <option value="{{ value }}" {{ 'selected' if status == value else '' }}>{{ value.title() }}</option>
+      {% endfor %}
+    </select>
+    <button class="button primary" type="submit">Search</button>
+  </form>
+  <table>
+    <thead>
+      <tr>
+        <th>User</th>
+        <th>Role</th>
+        <th>Phone</th>
+        <th>Verification</th>
+        <th>Rating</th>
+        <th>Status</th>
+        <th>Joined</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in result.rows %}
+      <tr>
+        <td>
+          <strong>{{ row.first_name }} {{ row.last_name }}</strong><br>
+          <span class="muted" style="font-size: 12px;">{{ row.email or row.id }}</span>
+        </td>
+        <td><span class="status-chip {{ 'blue' if row.role == 'ADMIN' else 'green' if row.role == 'CLEANER' else '' }}">{{ row.role.title() }}</span></td>
+        <td>{{ row.phone or '-' }}</td>
+        <td>
+          {% if row.role == 'CLIENT' %}
+            <a href="/verification/clients?search={{ row.email or row.id }}" style="text-decoration: none;">
+              <span class="status-chip {{ 'green' if row.verification_status == 'VERIFIED' else 'amber' if row.verification_status in ['PENDING_REVIEW', 'PENDING'] else 'red' if row.verification_status == 'REJECTED' else 'blue' }}" style="cursor: pointer;" title="View in Client Verification Queue">
+                {{ (row.verification_status or 'UNVERIFIED').replace('_',' ').title() }} ↗
+              </span>
+            </a>
+          {% elif row.role == 'CLEANER' %}
+            <a href="/verification?entity=cleaner&status=all" style="text-decoration: none;">
+              <span class="status-chip {{ 'green' if row.verification_status == 'VERIFIED' else 'amber' if row.verification_status in ['PENDING_REVIEW', 'PENDING'] else 'red' if row.verification_status == 'REJECTED' else '' }}" style="cursor: pointer;" title="View in Cleaner Verification Queue">
+                {{ (row.verification_status or 'N/A').replace('_',' ').title() }} ↗
+              </span>
+            </a>
+          {% else %}
+            {{ (row.verification_status or 'N/A').replace('_',' ').title() }}
+          {% endif %}
+        </td>
+        <td>{{ '★ ' ~ row.rating if row.rating is not none else '-' }}</td>
+        <td>
+          <span class="status-chip {{ 'green' if row.account_status == 'ACTIVE' else 'red' if row.account_status == 'SUSPENDED' else 'amber' }}">
+            {{ row.account_status.title() }}
+          </span>
+        </td>
+        <td style="font-size: 12px; color: var(--muted);">{{ row.created_at[:10] if row.created_at else '-' }}</td>
+        <td>
+          {% if row.account_status == 'SUSPENDED' or row.account_status == 'DISABLED' %}
+          <form method="post" action="/users/{{ row.id }}/activate" class="inline-form" style="display:inline;">
+            <input type="hidden" name="reason" value="Administrative reactivation">
+            <button class="button primary" type="submit" style="padding: 4px 10px; font-size: 13px;">Activate</button>
+          </form>
+          {% else %}
+          <form method="post" action="/users/{{ row.id }}/suspend" class="inline-form" style="display:inline;">
+            <input type="hidden" name="reason" value="Administrative suspension">
+            <button class="button danger" type="submit" style="padding: 4px 10px; font-size: 13px;">Suspend</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="empty-state">No matching users found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="pagination" style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px;">
+    <span>Total: <strong>{{ result.count }}</strong> users</span>
+    <div style="display: flex; gap: 8px;">
+      {% if page > 1 %}<a class="button" href="?search={{ search }}&role={{ role }}&status={{ status }}&page={{ page-1 }}">Previous</a>{% endif %}
+      {% if page < result.pages %}<a class="button" href="?search={{ search }}&role={{ role }}&status={{ status }}&page={{ page+1 }}">Next</a>{% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

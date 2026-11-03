@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block heading %}Subscriptions{% endblock %}
+{% block content %}
+<section class="panel" style="margin-bottom: 24px;">
+  <div class="panel-head">
+    <div>
+      <h2>Activate Cleaner Subscription</h2>
+      {% if period %}
+      <p class="muted" style="margin-top: 4px; font-size: 13px;">
+        Standard Annual Window: <strong>{{ period.start_date }}</strong> through <strong>{{ period.end_date }}</strong>
+      </p>
+      {% endif %}
+    </div>
+  </div>
+
+  <form method="post" action="/subscriptions/activate" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; align-items: end; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+    <div>
+      <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">Select Cleaner</label>
+      <select name="cleaner_id" required style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff;">
+        <option value="">-- Choose a Cleaner --</option>
+        {% for c in cleaners %}
+        {% set cp = c.profiles or {} %}
+        <option value="{{ c.id }}" {{ 'selected' if (prefill_cleaner == c.id or prefill_cleaner == c.user_id) else '' }}>
+          {{ cp.first_name }} {{ cp.last_name }} ({{ cp.phone or 'No phone' }}) - {{ c.subscription_status }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">Membership Plan</label>
+      <select name="plan_id" required style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff;">
+        {% for plan in plans %}
+        <option value="{{ plan.id }}">{{ plan.name }} ({{ plan.currency }} {{ plan.amount }}/{{ plan.billing_period }})</option>
+        {% else %}
+        <option value="default">CleanLink Annual Cleaner Pass (ZAR 350.00/yr)</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">Payment Date</label>
+      <input name="payment_date" type="date" value="{{ today }}" required style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff;">
+    </div>
+
+    <div>
+      <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">Payment / Reference ID (Optional)</label>
+      <input name="payment_id" placeholder="e.g. EFT-REF-9921 or blank" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff;">
+    </div>
+
+    <div>
+      <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">Reason</label>
+      <input name="reason" value="Manual EFT / Admin activation" required style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff;">
+    </div>
+
+    <div>
+      <button class="button primary" type="submit" style="width: 100%; height: 38px;">⚡ Activate Subscription</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>Cleaner Subscriptions History</h2>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Cleaner</th>
+        <th>Status</th>
+        <th>Start Date</th>
+        <th>End Date</th>
+        <th>Payment Reference</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in subscriptions %}
+      {% set cleaner = row.cleaner_profiles or {} %}
+      {% set prof = cleaner.profiles or {} %}
+      <tr>
+        <td>
+          <strong>{{ (prof.first_name ~ ' ' ~ prof.last_name).strip() if (prof.first_name or prof.last_name) else 'Cleaner' }}</strong><br>
+          <span class="muted" style="font-size: 12px;">{{ row.cleaner_id }}</span>
+        </td>
+        <td>
+          <span class="status-chip {{ 'green' if row.status == 'ACTIVE' else 'red' if row.status == 'EXPIRED' else 'amber' }}">
+            {{ row.status }}
+          </span>
+        </td>
+        <td>{{ row.start_date }}</td>
+        <td>{{ row.end_date }}</td>
+        <td><code style="font-size: 12px;">{{ row.payment_id or '-' }}</code></td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="5" class="empty-state" style="text-align: center; padding: 40px 20px;">
+          <div style="font-size: 24px; margin-bottom: 8px;">💳</div>
+          <div style="font-weight: 600; font-size: 16px; margin-bottom: 4px;">No subscriptions found</div>
+          <div class="muted" style="font-size: 13px;">Use the form above to activate an annual subscription for any registered cleaner after verifying payment.</div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

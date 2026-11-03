@@ -1,0 +1,910 @@
+{% extends "base.html" %}
+{% block heading %}{{ 'Client' if entity == 'client' else 'Cleaner' }} Verification Queue{% endblock %}
+{% block content %}
+
+{% if success %}
+<div class="alert" style="background: #e7f6ee; border-color: #a6e0c2; color: #0f6b45; margin-bottom: 18px; font-weight: 700;">
+  ✓ {{ success }}
+</div>
+{% endif %}
+
+<!-- Top Primary Queue Tabs -->
+<div style="background: #ffffff; border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+  <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+    <span style="font-weight: 800; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px;">Queue:</span>
+    <a href="/verification" style="padding: 10px 22px; font-size: 14px; font-weight: 800; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s; {{ 'background: #178a5a; color: #ffffff; box-shadow: 0 2px 6px rgba(23,138,90,0.3);' if entity != 'client' else 'background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1;' }}">
+      🧹 Cleaners Queue ({{ cleaner_counts.pending if cleaner_counts else 0 }} Pending)
+    </a>
+    <a href="/verification/clients" style="padding: 10px 22px; font-size: 14px; font-weight: 800; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s; {{ 'background: #2563eb; color: #ffffff; box-shadow: 0 2px 6px rgba(37,99,235,0.3);' if entity == 'client' else 'background: #eff6ff; color: #1e40af; border: 1px solid #93c5fd;' }}">
+      👤 Clients Queue ({{ client_counts.pending if client_counts else 0 }} Pending)
+    </a>
+  </div>
+  <div>
+    {% if entity == 'client' %}
+    <span class="status-chip blue" style="font-size: 12px; padding: 4px 12px;">Mode: Client Identity Verification</span>
+    {% else %}
+    <span class="status-chip green" style="font-size: 12px; padding: 4px 12px;">Mode: Cleaner Document Review</span>
+    {% endif %}
+  </div>
+</div>
+
+{% if entity != 'client' %}
+<!-- Callout Banner when on Cleaners page pointing directly to Clients Queue -->
+<div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 5px solid #16a34a; border-radius: 8px; padding: 14px 18px; margin-bottom: 22px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <span style="font-size: 26px;">👤</span>
+    <div>
+      <strong style="color: #15803d; font-size: 14px;">Need to verify Clients?</strong>
+      <p style="margin: 2px 0 0; color: #334155; font-size: 13px;">Review client identity cases, documents, selfies, and approve or reject client accounts.</p>
+    </div>
+  </div>
+  <a href="/verification/clients" style="background: #15803d; color: #ffffff; padding: 9px 20px; border-radius: 6px; font-weight: 800; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(21,128,61,0.25);">
+    Go to Clients Queue ({{ client_counts.pending if client_counts else 0 }} Pending) &rarr;
+  </a>
+</div>
+{% else %}
+<!-- Callout Banner when on Clients page pointing back to Cleaners Queue -->
+<div style="background: #eff6ff; border: 1px solid #bfdbfe; border-left: 5px solid #2563eb; border-radius: 8px; padding: 14px 18px; margin-bottom: 22px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <span style="font-size: 26px;">🧹</span>
+    <div>
+      <strong style="color: #1d4ed8; font-size: 14px;">Need to review Cleaners?</strong>
+      <p style="margin: 2px 0 0; color: #334155; font-size: 13px;">Review cleaner background checks, ID documents, and proof of address in the Cleaners Queue.</p>
+    </div>
+  </div>
+  <a href="/verification" style="background: #2563eb; color: #ffffff; padding: 9px 20px; border-radius: 6px; font-weight: 800; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(37,99,235,0.25);">
+    Go to Cleaners Queue ({{ cleaner_counts.pending if cleaner_counts else 0 }} Pending) &rarr;
+  </a>
+</div>
+{% endif %}
+
+<!-- Status Sub-Filter Tabs & Search -->
+<div style="display: flex; gap: 8px; margin-bottom: 18px; border-bottom: 1px solid var(--line); padding-bottom: 12px; align-items: center; flex-wrap: wrap;">
+  {% if entity == 'client' %}
+  <a href="/verification/clients?status=pending" class="button {{ 'primary' if selected_status == 'pending' else '' }}" style="font-size: 13px; padding: 6px 14px;">
+    ⏳ Pending Review ({{ client_counts.pending if client_counts else 0 }})
+  </a>
+  <a href="/verification/clients?status=all" class="button {{ 'primary' if selected_status == 'all' else '' }}" style="font-size: 13px; padding: 6px 14px;">
+    👥 All Clients ({{ client_counts.all if client_counts else 0 }})
+  </a>
+  <a href="/verification/clients?status=verified" class="button {{ 'primary' if selected_status == 'verified' else '' }}" style="font-size: 13px; padding: 6px 14px;">
+    ✅ Verified ({{ client_counts.verified if client_counts else 0 }})
+  </a>
+  <a href="/verification/clients?status=unverified" class="button {{ 'primary' if selected_status == 'unverified' else '' }}" style="font-size: 13px; padding: 6px 14px;">
+    ⚠️ Unverified ({{ client_counts.unverified if client_counts else 0 }})
+  </a>
+  <form method="get" action="/verification/clients" style="margin-left: auto; display: flex; gap: 6px;">
+    <input type="hidden" name="status" value="{{ selected_status }}">
+    <input type="text" name="search" value="{{ search or '' }}" placeholder="Search client name, email, phone..." style="padding: 6px 10px; font-size: 12px; border: 1px solid var(--line); border-radius: 6px; min-width: 220px;">
+    <button type="submit" class="button" style="padding: 6px 12px; font-size: 12px;">Search</button>
+    {% if search %}
+    <a href="/verification/clients?status={{ selected_status }}" class="button" style="padding: 6px 10px; font-size: 12px;">Clear</a>
+    {% endif %}
+  </form>
+  {% else %}
+  <a href="/verification?status=pending" class="button {{ 'primary' if selected_status == 'pending' else '' }}" style="font-size: 13px; padding: 6px 14px;">
+    ⏳ Pending Review ({{ cleaner_counts.pending if cleaner_counts else 0 }})
+  </a>
+  <a href="/verification?status=all" class="button {{ 'primary' if selected_status == 'all' else '' }}" style="font-size: 13px; padding: 6px 14px;">
+    👥 All Cleaners ({{ cleaner_counts.all if cleaner_counts else 0 }})
+  </a>
+  <a href="/verification?status=verified" class="button {{ 'primary' if selected_status == 'verified' else '' }}" style="font-size: 13px; padding: 6px 14px;">
+    ✅ Verified ({{ cleaner_counts.verified if cleaner_counts else 0 }})
+  </a>
+  {% endif %}
+</div>
+
+<!-- Metrics Overview -->
+<div class="metric-grid">
+  {% if entity == 'client' %}
+  <div class="metric-card">
+    <span>Pending Client Reviews</span>
+    <strong>{{ client_counts.pending if client_counts else 0 }}</strong>
+  </div>
+  <div class="metric-card">
+    <span>Verified Clients</span>
+    <strong>{{ client_counts.verified if client_counts else 0 }}</strong>
+  </div>
+  <div class="metric-card">
+    <span>Total Registered Clients</span>
+    <strong>{{ client_counts.all if client_counts else 0 }}</strong>
+  </div>
+  {% else %}
+  <div class="metric-card">
+    <span>Pending Review</span>
+    <strong>{{ cleaner_counts.pending if cleaner_counts else 0 }}</strong>
+  </div>
+  <div class="metric-card">
+    <span>Ready for Review</span>
+    <strong>{{ applications | selectattr("stats.is_complete") | list | length }}</strong>
+  </div>
+  <div class="metric-card">
+    <span>Total Registered Cleaners</span>
+    <strong>{{ cleaner_counts.all if cleaner_counts else 0 }}</strong>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Empty State -->
+{% if not applications %}
+<section class="panel">
+  <div class="empty-state" style="padding: 40px 20px;">
+    <div style="font-size: 42px; margin-bottom: 12px;">✅</div>
+    <h3 style="margin-bottom: 6px; font-size: 18px;">No {{ 'Clients' if entity == 'client' else 'Applications' }} in this View</h3>
+    <p class="muted">There are currently no {{ 'clients' if entity == 'client' else 'cleaner applications' }} matching status "{{ selected_status }}".</p>
+    <div style="margin-top: 14px;">
+      <a href="/verification?entity={{ entity }}&status=all" class="button">View All {{ 'Clients' if entity == 'client' else 'Cleaners & Documents' }}</a>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- Client Applications Queue -->
+{% if entity == 'client' %}
+{% for item in applications %}
+<article class="applicant-card" id="client-{{ item.id }}">
+  <!-- Client Header -->
+  <div class="applicant-header">
+    <div class="applicant-profile-info">
+      <div class="applicant-avatar" style="background: #eef4ff; color: var(--blue);">
+        {% if item.profile_image_url %}
+        <img src="{{ item.profile_image_url }}" alt="{{ item.first_name }} {{ item.last_name }}">
+        {% else %}
+        <span>{{ (item.first_name or 'C')[0] }}{{ (item.last_name or 'L')[0] }}</span>
+        {% endif %}
+      </div>
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <h2 style="font-size: 18px; margin: 0;">{{ item.first_name }} {{ item.last_name }}</h2>
+          <span class="status-chip blue">Client</span>
+          {% if item.status == 'VERIFIED' %}
+          <span class="status-chip green">Verified Client</span>
+          {% elif item.status == 'PENDING_REVIEW' %}
+          <span class="status-chip amber">Pending Review</span>
+          {% elif item.status == 'REJECTED' %}
+          <span class="status-chip red">Verification Rejected</span>
+          {% else %}
+          <span class="status-chip" style="background: #f1f5f9; color: var(--muted);">Unverified</span>
+          {% endif %}
+          <span class="status-chip {{ 'green' if item.account_status == 'ACTIVE' else 'amber' }}">{{ item.account_status.title() if item.account_status else 'Active' }}</span>
+        </div>
+        <div class="applicant-meta">
+          <span><strong>Email:</strong> {{ item.auth_email or item.email or 'Not provided' }}</span>
+          <span><strong>Phone:</strong> {{ item.phone or 'Not provided' }}</span>
+          {% if item.identity_number %}
+          <span><strong>ID Number:</strong> {{ item.identity_number }}</span>
+          {% endif %}
+          {% if item.address %}
+          <span><strong>Location / Suburb:</strong> {{ item.address }}</span>
+          {% endif %}
+          <span><strong>User ID:</strong> <code>{{ item.user_id[:8] }}...</code></span>
+          <span><strong>Joined:</strong> {{ item.created_at[:10] if item.created_at else '-' }}</span>
+          {% if item.verified_at %}
+          <span><strong>Verified At:</strong> {{ item.verified_at[:10] }} ({{ item.method or 'manual' }})</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Client Verification Details & Evidence -->
+  {% if item.review %}
+  {% set rev_status = item.review.get('status') or 'pending' %}
+  {% set rev_reason = item.review.get('reason') or 'Manual Review' %}
+  {% set rev_created = item.review.get('created_at') %}
+  <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 16px; margin: 14px 0;">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; flex-wrap: wrap;">
+      <span style="font-size: 13px; font-weight: 750; color: #1e293b;">
+        📋 Manual Verification Review Case &bull; <span class="status-chip {{ 'green' if rev_status == 'approved' else 'red' if rev_status == 'rejected' else 'amber' }}">{{ rev_status.upper() }}</span>
+      </span>
+      <span class="muted" style="font-size: 11px;">Case Reason: <strong>{{ rev_reason | replace('_', ' ') | title }}</strong> &bull; Submitted: {{ rev_created[:16].replace('T', ' ') if rev_created else '-' }}</span>
+    </div>
+    {% if item.review.get('client_note') %}
+    <p style="font-size: 13px; margin: 6px 0; color: #334155; background: #ffffff; padding: 8px 12px; border-radius: 4px; border: 1px solid #e2e8f0;">
+      <strong>Client Note:</strong> {{ item.review.get('client_note') }}
+    </p>
+    {% endif %}
+    {% if item.review.get('decision_reason') %}
+    <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">
+      <strong>Review Decision:</strong> {{ item.review.get('decision_reason') }}
+      {% if item.review.get('evidence_reference') %}&bull; Ref: <code>{{ item.review.get('evidence_reference') }}</code>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Client Required Verification Documents -->
+  <div class="doc-section-title">
+    <span>Client Verification Documents</span>
+    <span class="muted" style="font-size: 12px; font-weight: normal; text-transform: none;">
+      Official ID copy and Proof of Residence submitted by client
+    </span>
+  </div>
+
+  <div class="doc-grid" style="margin-bottom: 24px;">
+    <!-- 1. South African ID / Passport Card -->
+    <div class="doc-card {{ 'missing' if not item.id_document else '' }}">
+      <div class="doc-card-header">
+        <span class="doc-type-title">🪪 South African ID / Passport Copy</span>
+        {% if item.id_document %}
+          {% if item.id_document.get('status') == 'APPROVED' %}
+            <span class="doc-badge-approved">APPROVED</span>
+          {% elif item.id_document.get('status') == 'REJECTED' %}
+            <span class="doc-badge-rejected">REJECTED</span>
+          {% else %}
+            <span class="doc-badge-pending">SUBMITTED</span>
+          {% endif %}
+        {% else %}
+          <span class="doc-badge-missing">NOT UPLOADED</span>
+        {% endif %}
+      </div>
+      <div class="doc-file-info">
+        <span class="doc-icon">📄</span>
+        <div style="flex: 1; min-width: 0;">
+          <div class="doc-filename">{{ item.id_document.get('original_file_name') if item.id_document else 'Identity Document (Required)' }}</div>
+          <div class="doc-filesize">
+            {% if item.id_document %}
+              {{ (item.id_document.get('file_size', 0) / 1024) | round(1) }} KB &bull; {{ item.id_document.get('mime_type') }}
+            {% else %}
+              Required document not yet submitted
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="doc-actions">
+        {% if item.id_document and item.id_document.get('preview_url') %}
+        <button type="button" class="btn-sm primary"
+          data-preview-url="{{ item.id_document.get('preview_url') }}"
+          data-preview-title="ID Document: {{ item.first_name }} {{ item.last_name }}"
+          data-preview-filename="{{ item.id_document.get('original_file_name') }}"
+          data-preview-is-pdf="{{ 'true' if 'pdf' in (item.id_document.get('mime_type') or '').lower() else 'false' }}"
+          onclick="previewDocElement(this)">
+          👁️ View Document
+        </button>
+        <a href="{{ item.id_document.get('preview_url') }}" target="_blank" rel="noopener" class="btn-sm secondary">⬇️ Open Full</a>
+        {% else %}
+        <span class="muted" style="font-size: 12px;">Not uploaded</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- 2. Proof of Residence Card -->
+    <div class="doc-card {{ 'missing' if not item.proof_of_residence else '' }}">
+      <div class="doc-card-header">
+        <span class="doc-type-title">🏠 Proof of Residence</span>
+        {% if item.proof_of_residence %}
+          {% if item.proof_of_residence.get('status') == 'APPROVED' %}
+            <span class="doc-badge-approved">APPROVED</span>
+          {% elif item.proof_of_residence.get('status') == 'REJECTED' %}
+            <span class="doc-badge-rejected">REJECTED</span>
+          {% else %}
+            <span class="doc-badge-pending">SUBMITTED</span>
+          {% endif %}
+        {% else %}
+          <span class="doc-badge-missing">NOT UPLOADED</span>
+        {% endif %}
+      </div>
+      <div class="doc-file-info">
+        <span class="doc-icon">📑</span>
+        <div style="flex: 1; min-width: 0;">
+          <div class="doc-filename">{{ item.proof_of_residence.get('original_file_name') if item.proof_of_residence else 'Proof of Address (Required)' }}</div>
+          <div class="doc-filesize">
+            {% if item.proof_of_residence %}
+              {{ (item.proof_of_residence.get('file_size', 0) / 1024) | round(1) }} KB &bull; {{ item.proof_of_residence.get('mime_type') }}
+            {% else %}
+              Utility bill, bank statement, or lease
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="doc-actions">
+        {% if item.proof_of_residence and item.proof_of_residence.get('preview_url') %}
+        <button type="button" class="btn-sm primary"
+          data-preview-url="{{ item.proof_of_residence.get('preview_url') }}"
+          data-preview-title="Proof of Residence: {{ item.first_name }} {{ item.last_name }}"
+          data-preview-filename="{{ item.proof_of_residence.get('original_file_name') }}"
+          data-preview-is-pdf="{{ 'true' if 'pdf' in (item.proof_of_residence.get('mime_type') or '').lower() else 'false' }}"
+          onclick="previewDocElement(this)">
+          👁️ View Document
+        </button>
+        <a href="{{ item.proof_of_residence.get('preview_url') }}" target="_blank" rel="noopener" class="btn-sm secondary">⬇️ Open Full</a>
+        {% else %}
+        <span class="muted" style="font-size: 12px;">Not uploaded</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Photos & Identity Artifacts -->
+  <div class="doc-section-title">
+    <span>Verification Photos & Visual Evidence</span>
+    <span class="muted" style="font-size: 12px; font-weight: normal; text-transform: none;">
+      Click "View Photo" to inspect client profile and booking captures
+    </span>
+  </div>
+
+  <div class="doc-grid">
+    <!-- Profile Photo Card -->
+    <div class="doc-card">
+      <div class="doc-card-header">
+        <span class="doc-type-title">🖼️ Account Profile Photo</span>
+        {% if item.profile_image_url %}
+        <span class="doc-badge-optional" style="background: #e0f2fe; color: #0369a1;">AVAILABLE</span>
+        {% else %}
+        <span class="doc-badge-optional">NOT SET</span>
+        {% endif %}
+      </div>
+      <div class="doc-file-info">
+        <span class="doc-icon">👤</span>
+        <div style="flex: 1; min-width: 0;">
+          <div class="doc-filename">{{ item.first_name }} {{ item.last_name }} Avatar</div>
+          <div class="doc-filesize">{{ 'Profile picture uploaded' if item.profile_image_url else 'Default initials used' }}</div>
+        </div>
+      </div>
+      <div class="doc-actions">
+        {% if item.profile_image_url %}
+        <button type="button" class="btn-sm primary"
+          data-preview-url="{{ item.profile_image_url }}"
+          data-preview-title="Profile Photo: {{ item.first_name }} {{ item.last_name }}"
+          data-preview-filename="profile_photo.jpg"
+          data-preview-is-pdf="false"
+          onclick="previewDocElement(this)">
+          👁️ View Photo
+        </button>
+        <a href="{{ item.profile_image_url }}" target="_blank" rel="noopener" class="btn-sm secondary">⬇️ Open Full</a>
+        {% else %}
+        <span class="muted" style="font-size: 12px;">No custom profile photo</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Booking Face Photo Card -->
+    <div class="doc-card {{ 'missing' if not item.face_photo_url else '' }}">
+      <div class="doc-card-header">
+        <span class="doc-type-title">📸 Booking Face Capture</span>
+        {% if item.face_photo_url %}
+        <span class="doc-badge-optional" style="background: #e7f6ee; color: #0f6b45;">CAPTURED</span>
+        {% else %}
+        <span class="doc-badge-optional">NO CAPTURE</span>
+        {% endif %}
+      </div>
+      <div class="doc-file-info">
+        <span class="doc-icon">🤳</span>
+        <div style="flex: 1; min-width: 0;">
+          <div class="doc-filename">Live Face Photo</div>
+          <div class="doc-filesize">
+            {% if item.face_captured_at %}
+            Captured {{ item.face_captured_at[:16].replace('T', ' ') }}
+            {% else %}
+            No booking selfie on record
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="doc-actions">
+        {% if item.face_photo_url %}
+        <button type="button" class="btn-sm primary"
+          data-preview-url="{{ item.face_photo_url }}"
+          data-preview-title="Booking Face Capture: {{ item.first_name }} {{ item.last_name }}"
+          data-preview-filename="client_face_capture.jpg"
+          data-preview-is-pdf="false"
+          onclick="previewDocElement(this)">
+          👁️ View Face Photo
+        </button>
+        <a href="{{ item.face_photo_url }}" target="_blank" rel="noopener" class="btn-sm secondary">⬇️ Open Full</a>
+        {% else %}
+        <span class="muted" style="font-size: 12px;">No booking face photo captured</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Verification Method Card -->
+    <div class="doc-card">
+      <div class="doc-card-header">
+        <span class="doc-type-title">🛡️ Identity Verification Status</span>
+        <span class="status-chip {{ 'green' if item.status == 'VERIFIED' else 'amber' if item.status == 'PENDING_REVIEW' else 'red' if item.status == 'REJECTED' else 'blue' }}" style="font-size: 10px; min-height: 18px; padding: 2px 8px;">
+          {{ item.status }}
+        </span>
+      </div>
+      <div class="doc-file-info">
+        <span class="doc-icon">🪪</span>
+        <div style="flex: 1; min-width: 0;">
+          <div class="doc-filename">Mode: {{ item.method.replace('_', ' ').title() if item.method else 'Manual / Admin' }}</div>
+          <div class="doc-filesize">
+            {% if item.status == 'VERIFIED' and item.expires_at %}
+            Expires on {{ item.expires_at[:10] }}
+            {% elif item.status == 'PENDING_REVIEW' %}
+            Waiting for administrative verification
+            {% else %}
+            Account not verified yet
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="doc-actions">
+        <span class="muted" style="font-size: 12px;">Method: <strong>{{ item.method or 'Not yet verified' }}</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rejection reason note if previously rejected -->
+  {% if item.rejection_reason %}
+  <div class="alert compact" style="margin-top: 10px;">
+    <strong>Previous Review Note:</strong> {{ item.rejection_reason }}
+  </div>
+  {% endif %}
+
+  <!-- Client Decision Footer -->
+  <div class="applicant-footer">
+    <div style="font-size: 13px; color: var(--muted);">
+      {% if item.status == 'VERIFIED' %}
+      ✅ <strong>Client is Verified:</strong> Identity verified successfully (Valid until {{ item.expires_at[:10] if item.expires_at else 'Active' }}).
+      {% elif item.status == 'PENDING_REVIEW' %}
+      ⏳ <strong>Pending Admin Review:</strong> Client requested review or submitted credentials for verification.
+      {% elif item.status == 'REJECTED' %}
+      ❌ <strong>Verification Rejected:</strong> Client identity was previously rejected. You may review and verify when updated.
+      {% else %}
+      ⚠️ <strong>Unverified Client:</strong> Client account is registered but identity verification has not been completed.
+      {% endif %}
+    </div>
+
+    <div class="decision-actions">
+      <!-- Reject Button & Modal Trigger -->
+      <button type="button" class="button danger" style="padding: 6px 14px; font-size: 13px;" onclick="promptRejectClient('{{ item.user_id }}', '{{ item.first_name }} {{ item.last_name }}')">
+        Reject...
+      </button>
+
+      {% if item.status == 'VERIFIED' %}
+      <!-- Reset status form -->
+      <form method="post" action="/verification/clients/{{ item.user_id }}/reset" class="inline-form" onsubmit="return confirm('Reset verification status for {{ item.first_name }} {{ item.last_name }} back to unverified?');">
+        <button class="button secondary" type="submit" style="padding: 6px 14px; font-size: 13px;">
+          Reset to Unverified
+        </button>
+      </form>
+      {% endif %}
+
+      <!-- Quick Approve Form -->
+      <form method="post" action="/verification/clients/{{ item.user_id }}/approve" class="inline-form" onsubmit="return confirm('Are you sure you want to approve and verify client {{ item.first_name }} {{ item.last_name }}?');">
+        <input type="hidden" name="reason" value="Client identity inspected and verified by administrator">
+        <input type="hidden" name="evidence_reference" value="ADMIN-VERIFY-{{ item.user_id[:8] }}">
+        <button class="button primary" type="submit" style="padding: 6px 16px; font-size: 13px; font-weight: 800;">
+          ✓ Approve & Verify Client
+        </button>
+      </form>
+    </div>
+  </div>
+</article>
+{% endfor %}
+
+{% else %}
+<!-- Cleaner Applications Queue -->
+{% for item in applications %}
+{% set cp = item.cleaner_profiles or {} %}
+{% set profile = cp.profiles or {} %}
+{% set stats = item.stats or {} %}
+{% set docs = item.documents or [] %}
+{% set all_types = item.all_document_types or [] %}
+
+<article class="applicant-card" id="app-{{ item.id }}">
+  <!-- Applicant Header -->
+  <div class="applicant-header">
+    <div class="applicant-profile-info">
+      <div class="applicant-avatar">
+        {% if profile.profile_image_url %}
+        <img src="{{ profile.profile_image_url }}" alt="{{ profile.first_name }} {{ profile.last_name }}">
+        {% else %}
+        <span>{{ (profile.first_name or 'C')[0] }}{{ (profile.last_name or 'L')[0] }}</span>
+        {% endif %}
+      </div>
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <h2 style="font-size: 18px; margin: 0;">{{ profile.first_name }} {{ profile.last_name }}</h2>
+          <span class="status-chip {{ 'amber' if item.status == 'PENDING_REVIEW' else 'blue' }}">{{ item.status }}</span>
+          {% if stats.is_complete %}
+          <span class="status-chip green">All Required Docs Uploaded</span>
+          {% else %}
+          <span class="status-chip amber">{{ stats.required_uploaded }}/{{ stats.required_total }} Required Docs</span>
+          {% endif %}
+        </div>
+        <div class="applicant-meta">
+          <span><strong>Email:</strong> {{ item.auth_email or profile.email or 'Not provided' }}</span>
+          <span><strong>Phone:</strong> {{ profile.phone or 'Not provided' }}</span>
+          {% if item.identity_number %}
+          <span><strong>ID Number:</strong> {{ item.identity_number }}</span>
+          {% endif %}
+          <span><strong>Application ID:</strong> <code>{{ item.id[:8] }}...</code></span>
+          <span><strong>Submitted:</strong> {{ item.submitted_at[:16] if item.submitted_at else 'Recently' }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Documents Section -->
+  <div class="doc-section-title">
+    <span>Uploaded Documents & Verification Files ({{ docs | length }})</span>
+    <span class="muted" style="font-size: 12px; font-weight: normal; text-transform: none;">
+      Click "View Document" to inspect applicant credentials
+    </span>
+  </div>
+
+  <div class="doc-grid">
+    {% for slot in item.doc_slots %}
+      {% set dt = slot.doc_type %}
+      {% set matched_doc = slot.document %}
+
+      {% if matched_doc %}
+      <!-- Uploaded Document Card -->
+      <div class="doc-card">
+        <div>
+          <div class="doc-card-header">
+            <span class="doc-type-title">
+              {% if matched_doc.is_pdf %}📄{% elif matched_doc.is_image %}🖼️{% else %}📎{% endif %}
+              {{ dt.name }}
+            </span>
+            {% if dt.required %}
+            <span class="doc-badge-required">REQUIRED</span>
+            {% else %}
+            <span class="doc-badge-optional">OPTIONAL</span>
+            {% endif %}
+          </div>
+          {% if dt.description %}
+          <p class="muted" style="font-size: 12px; margin: 4px 0 8px 0;">{{ dt.description }}</p>
+          {% endif %}
+        </div>
+
+        <div class="doc-file-info">
+          <span class="doc-icon">{% if matched_doc.is_pdf %}📕{% elif matched_doc.is_image %}🖼️{% else %}📄{% endif %}</span>
+          <div style="flex: 1; min-width: 0;">
+            <div class="doc-filename" title="{{ matched_doc.original_file_name }}">{{ matched_doc.original_file_name }}</div>
+            <div class="doc-filesize">{{ matched_doc.file_size_display }} &bull; <span class="status-chip {{ 'green' if matched_doc.status == 'APPROVED' else ('red' if matched_doc.status == 'REJECTED' else 'amber') }}" style="min-height: 18px; padding: 1px 6px; font-size: 11px;">{{ matched_doc.status }}</span></div>
+          </div>
+        </div>
+
+        <div class="doc-actions">
+          {% if matched_doc.download_url or matched_doc.storage_path %}
+          <button type="button" class="btn-sm primary"
+            data-preview-url="{{ matched_doc.preview_url }}"
+            data-preview-title="{{ dt.name }}"
+            data-preview-filename="{{ matched_doc.original_file_name }}"
+            data-preview-is-pdf="{{ 'true' if matched_doc.is_pdf else 'false' }}"
+            onclick="previewDocElement(this)">
+            👁️ Preview
+          </button>
+          <a href="{{ matched_doc.preview_url }}" target="_blank" rel="noopener" class="btn-sm secondary" title="Open in new browser tab">
+            ↗ New Tab
+          </a>
+          <a href="{{ matched_doc.download_url }}" class="btn-sm" title="Download file to device">
+            ⬇️ Download
+          </a>
+          {% else %}
+          <span class="muted" style="font-size: 12px;">Storage path unavailable</span>
+          {% endif %}
+        </div>
+
+        {% if slot.previous_documents %}
+        <details style="margin-top: 8px;">
+          <summary style="font-size: 11px; color: var(--muted); cursor: pointer; user-select: none;">
+            📁 Earlier uploads ({{ slot.previous_documents | length }})
+          </summary>
+          <div style="margin-top: 6px; display: grid; gap: 4px;">
+            {% for prev_d in slot.previous_documents %}
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 11px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px;">
+              <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px;" title="{{ prev_d.original_file_name }}">{{ prev_d.original_file_name }}</span>
+              <div style="display: flex; gap: 4px; flex-shrink: 0;">
+                <button type="button" class="btn-sm secondary" style="padding: 1px 5px; font-size: 10px; min-height: 20px;"
+                  data-preview-url="{{ prev_d.preview_url or prev_d.download_url }}"
+                  data-preview-title="{{ dt.name }}"
+                  data-preview-filename="{{ prev_d.original_file_name }}"
+                  data-preview-is-pdf="{{ 'true' if prev_d.is_pdf else 'false' }}"
+                  onclick="previewDocElement(this)">👁️</button>
+                <a href="{{ prev_d.download_url }}" class="btn-sm primary" style="padding: 1px 5px; font-size: 10px; min-height: 20px;" title="Download">⬇️</a>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </details>
+        {% endif %}
+      </div>
+      {% else %}
+      <!-- Missing Document Card -->
+      <div class="doc-card missing">
+        <div>
+          <div class="doc-card-header">
+            <span class="doc-type-title" style="color: var(--muted);">
+              ⏳ {{ dt.name }}
+            </span>
+            {% if dt.required %}
+            <span class="doc-badge-required">REQUIRED</span>
+            {% else %}
+            <span class="doc-badge-optional">OPTIONAL</span>
+            {% endif %}
+          </div>
+          {% if dt.description %}
+          <p class="muted" style="font-size: 12px; margin: 4px 0 8px 0;">{{ dt.description }}</p>
+          {% endif %}
+        </div>
+
+        <div style="padding: 10px 0; font-size: 12px; color: var(--muted); text-align: center;">
+          <em>Not uploaded yet by applicant</em>
+        </div>
+
+        <div style="font-size: 11px; color: var(--muted);">
+          Accepted: {{ dt.accepted_file_types | join(', ') if dt.accepted_file_types else 'PDF, JPG, PNG' }}
+        </div>
+      </div>
+      {% endif %}
+    {% endfor %}
+
+    <!-- Any custom documents not in standard types -->
+    {% for d in item.custom_documents %}
+      <div class="doc-card">
+        <div class="doc-card-header">
+          <span class="doc-type-title">📎 {{ d.document_type_name }}</span>
+          <span class="doc-badge-optional">CUSTOM</span>
+        </div>
+        <div class="doc-file-info">
+          <div class="doc-filename">{{ d.original_file_name }}</div>
+          <div class="doc-filesize">{{ d.file_size_display }} &bull; <span class="status-chip {{ 'green' if d.status == 'APPROVED' else ('red' if d.status == 'REJECTED' else 'amber') }}" style="min-height: 18px; padding: 1px 6px; font-size: 11px;">{{ d.status }}</span></div>
+        </div>
+        <div class="doc-actions">
+          {% if d.download_url or d.storage_path %}
+          <button type="button" class="btn-sm primary"
+            data-preview-url="{{ d.preview_url or d.download_url }}"
+            data-preview-title="{{ d.document_type_name }}"
+            data-preview-filename="{{ d.original_file_name }}"
+            data-preview-is-pdf="{{ 'true' if d.is_pdf else 'false' }}"
+            onclick="previewDocElement(this)">
+            👁️ View Document
+          </button>
+          <a href="{{ d.download_url }}" target="_blank" rel="noopener" class="btn-sm secondary" title="Direct document download on standby">⬇️ Download</a>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <!-- Rejection reason if previously rejected -->
+  {% if item.rejection_reason %}
+  <div class="alert compact" style="margin-top: 10px;">
+    <strong>Previous Review Note:</strong> {{ item.rejection_reason }}
+  </div>
+  {% endif %}
+
+  <!-- Applicant Decision Footer -->
+  <div class="applicant-footer">
+    <div style="font-size: 13px; color: var(--muted);">
+      {% if docs | length == 0 %}
+      ⚠️ <strong>No files uploaded yet:</strong> Cleaner has created a profile but has not yet uploaded credentials via the mobile app.
+      {% elif not stats.is_complete %}
+      ⚠️ <strong>Incomplete credentials:</strong> Cleaner has uploaded {{ stats.required_uploaded }} of {{ stats.required_total }} required documents.
+      {% else %}
+      ✅ <strong>Ready for decision:</strong> Cleaner has submitted all {{ stats.required_total }} required verification credentials.
+      {% endif %}
+    </div>
+
+    <div class="decision-actions">
+      <!-- Reject Button & Modal Trigger -->
+      <button type="button" class="button danger" style="padding: 6px 14px; font-size: 13px;" onclick="promptReject('{{ item.id }}', '{{ item.cleaner_id }}', '{{ profile.first_name }} {{ profile.last_name }}')">
+        Reject Application...
+      </button>
+
+      <!-- Quick Approve Form -->
+      <form method="post" action="/verification/{{ item.id }}/approve" class="inline-form" onsubmit="return confirm('Are you sure you want to approve {{ profile.first_name }} {{ profile.last_name }} as a verified cleaner?');">
+        <input type="hidden" name="cleaner_id" value="{{ item.cleaner_id }}">
+        <input type="hidden" name="reason" value="All verification documents inspected and approved">
+        <button class="button primary" type="submit" style="padding: 6px 16px; font-size: 13px; font-weight: 800;">
+          ✓ Approve & Verify Cleaner
+        </button>
+      </form>
+    </div>
+  </div>
+</article>
+{% endfor %}
+{% endif %}
+
+<!-- Document / Photo Preview Modal -->
+<div id="docPreviewModal" class="modal-overlay" onclick="handleOverlayClick(event)">
+  <div class="modal-box" style="width: min(940px, 96vw); max-height: 92vh; display: flex; flex-direction: column; background: #ffffff; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); overflow: hidden; position: relative;" onclick="event.stopPropagation()">
+    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: #f8fafc; border-bottom: 1px solid var(--line);">
+      <div style="flex: 1; min-width: 0;">
+        <h3 id="previewTitle" style="margin: 0; font-size: 16px; font-weight: 750; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Document Preview</h3>
+        <span id="previewFilename" class="muted" style="font-size: 12px; display: block; margin-top: 2px;"></span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; margin-left: 12px;">
+        <a id="previewHeaderExtLink" href="#" target="_blank" rel="noopener" class="button" style="padding: 5px 12px; font-size: 12px; font-weight: 700;">
+          ↗ Open in New Tab
+        </a>
+        <button type="button" class="modal-close" style="font-size: 28px; line-height: 1; border: none; background: transparent; cursor: pointer; color: #64748b; padding: 0 4px;" onclick="closeDocPreviewDirect()" title="Close (Esc)">&times;</button>
+      </div>
+    </div>
+    
+    <div class="modal-body" id="previewBody" style="flex: 1; min-height: 480px; max-height: calc(92vh - 130px); padding: 0; background: #f1f5f9; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+      <!-- Dynamic content inserted by JS -->
+    </div>
+    
+    <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; background: #f8fafc; border-top: 1px solid var(--line);">
+      <span class="muted" style="font-size: 12px;">CleanLink Secure Document Storage</span>
+      <div style="display: flex; gap: 8px;">
+        <a id="previewDownloadLink" href="#" class="button" style="padding: 6px 14px; font-size: 13px;">
+          ⬇️ Download File
+        </a>
+        <button type="button" class="button primary" style="padding: 6px 16px; font-size: 13px; font-weight: 700;" onclick="closeDocPreviewDirect()">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Rejection Reason Modal -->
+<div id="rejectModal" class="modal-overlay" onclick="closeRejectModal(event)">
+  <div class="modal-box" style="width: min(520px, 95vw);" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h3 id="rejectModalTitle">Reject Verification</h3>
+      <button type="button" class="modal-close" onclick="closeRejectModalDirect()">&times;</button>
+    </div>
+    <form id="rejectForm" method="post" action="">
+      <div class="modal-body" style="padding: 18px 20px;">
+        <p class="muted" style="margin-top: 0; font-size: 13px;" id="rejectModalDesc">
+          Provide a reason for rejecting this verification. This note will be recorded in the audit trail.
+        </p>
+        <input type="hidden" id="rejectTargetId" name="cleaner_id" value="">
+        <div style="margin-bottom: 14px;">
+          <label style="display: block; font-weight: 700; font-size: 13px; margin-bottom: 6px;">Reason for Rejection *</label>
+          <textarea id="rejectReason" name="reason" rows="4" style="width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 10px; font-size: 13px; font-family: inherit; resize: vertical;" placeholder="e.g. Identity details could not be validated or mismatch documented evidence." required></textarea>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button type="button" class="button" onclick="closeRejectModalDirect()">Cancel</button>
+        <button type="submit" class="button danger" style="font-weight: 700;">Confirm Rejection</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function previewDocElement(btn) {
+  var url = btn.getAttribute('data-preview-url');
+  var title = btn.getAttribute('data-preview-title') || 'Document Preview';
+  var filename = btn.getAttribute('data-preview-filename') || '';
+  var isPdf = btn.getAttribute('data-preview-is-pdf') === 'true';
+  openDocPreview(url, title, filename, isPdf);
+}
+
+function openDocPreview(url, title, filename, isPdf) {
+  var modal = document.getElementById('docPreviewModal');
+  var body = document.getElementById('previewBody');
+  var headerExtLink = document.getElementById('previewHeaderExtLink');
+  var downloadLink = document.getElementById('previewDownloadLink');
+  
+  document.getElementById('previewTitle').innerText = title;
+  document.getElementById('previewFilename').innerText = filename;
+  
+  if (headerExtLink) headerExtLink.href = url;
+  if (downloadLink) {
+    downloadLink.href = url.replace('/view', '/download');
+  }
+
+  // Show loading spinner
+  body.innerHTML = '<div id="docSpinner" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 400px; color: #64748b; font-size: 14px; gap: 12px;">' +
+    '<div style="width: 36px; height: 36px; border: 3px solid #cbd5e1; border-top-color: #178a5a; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>' +
+    '<span>Loading document preview...</span>' +
+    '</div>';
+
+  if (!document.getElementById('docSpinStyle')) {
+    var style = document.createElement('style');
+    style.id = 'docSpinStyle';
+    style.innerHTML = '@keyframes spin { to { transform: rotate(360deg); } }';
+    document.head.appendChild(style);
+  }
+
+  // Render iframe for PDF or img for images
+  setTimeout(function() {
+    if (isPdf) {
+      body.innerHTML = '<iframe id="docIframe" src="' + url + '#toolbar=1&navpanes=0" title="' + title + '" style="width: 100%; height: 75vh; border: none; background: #ffffff; display: block;" onerror="handleDocPreviewError()"></iframe>';
+    } else {
+      body.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; width: 100%; padding: 20px; overflow: auto;">' +
+        '<img id="docImg" src="' + url + '" alt="' + title + '" style="max-height: 75vh; max-width: 100%; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.12);" onerror="handleDocPreviewError()">' +
+        '</div>';
+    }
+  }, 50);
+
+  modal.classList.add('active');
+  modal.classList.add('open');
+  modal.style.display = 'grid';
+  document.body.style.overflow = 'hidden';
+}
+
+function handleDocPreviewError() {
+  var body = document.getElementById('previewBody');
+  var headerExtLink = document.getElementById('previewHeaderExtLink');
+  var targetUrl = headerExtLink ? headerExtLink.href : '#';
+  body.innerHTML = '<div style="padding: 40px 20px; text-align: center; color: #475569;">' +
+    '<div style="font-size: 36px; margin-bottom: 12px;">📄</div>' +
+    '<h4 style="margin: 0 0 8px; font-size: 16px;">Inline Preview Not Supported by Browser</h4>' +
+    '<p style="font-size: 13px; color: #64748b; margin-bottom: 20px; max-width: 440px; margin-left: auto; margin-right: auto;">Your browser blocked the embedded viewer. You can open the document directly in a new tab or download it to view.</p>' +
+    '<div style="display: flex; gap: 10px; justify-content: center;">' +
+    '<a href="' + targetUrl + '" target="_blank" rel="noopener" class="button primary" style="font-weight: 750;">↗ Open in New Tab</a>' +
+    '<a href="' + targetUrl.replace('/view', '/download') + '" class="button">⬇️ Download File</a>' +
+    '</div></div>';
+}
+
+function handleOverlayClick(e) {
+  if (e.target && e.target.id === 'docPreviewModal') {
+    closeDocPreviewDirect();
+  }
+}
+
+function closeDocPreview(e) {
+  if (e && e.target && e.target.id === 'docPreviewModal') {
+    closeDocPreviewDirect();
+  }
+}
+
+function closeDocPreviewDirect() {
+  var modal = document.getElementById('docPreviewModal');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.classList.remove('open');
+    modal.style.display = 'none';
+  }
+  document.body.style.overflow = '';
+  var body = document.getElementById('previewBody');
+  if (body) {
+    body.innerHTML = '';
+  }
+}
+
+function promptReject(appId, cleanerId, applicantName) {
+  document.getElementById('rejectModalTitle').innerText = 'Reject Application: ' + applicantName;
+  document.getElementById("rejectModalDesc").innerText = "Specify why " + applicantName + "'s verification documents cannot be approved. This feedback will be saved to their application.";
+  document.getElementById('rejectTargetId').name = 'cleaner_id';
+  document.getElementById('rejectTargetId').value = cleanerId;
+  document.getElementById('rejectForm').action = '/verification/' + appId + '/reject';
+  document.getElementById('rejectReason').value = '';
+  var modal = document.getElementById('rejectModal');
+  modal.classList.add('active');
+  modal.classList.add('open');
+  modal.style.display = 'grid';
+  document.body.style.overflow = 'hidden';
+}
+
+function promptRejectClient(userId, clientName) {
+  document.getElementById('rejectModalTitle').innerText = 'Reject Client Verification: ' + clientName;
+  document.getElementById("rejectModalDesc").innerText = "Specify why " + clientName + "'s identity verification is rejected. This note will be recorded in the audit trail.";
+  document.getElementById('rejectTargetId').name = 'user_id';
+  document.getElementById('rejectTargetId').value = userId;
+  document.getElementById('rejectForm').action = '/verification/clients/' + userId + '/reject';
+  document.getElementById('rejectReason').value = '';
+  var modal = document.getElementById('rejectModal');
+  modal.classList.add('active');
+  modal.classList.add('open');
+  modal.style.display = 'grid';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeRejectModal(e) {
+  if (e.target && e.target.id === 'rejectModal') {
+    closeRejectModalDirect();
+  }
+}
+
+function closeRejectModalDirect() {
+  var modal = document.getElementById('rejectModal');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.classList.remove('open');
+    modal.style.display = 'none';
+  }
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeDocPreviewDirect();
+    closeRejectModalDirect();
+  }
+});
+</script>
+
+{% endblock %}

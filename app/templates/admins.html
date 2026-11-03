@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+{% block heading %}Administrators & Privileges{% endblock %}
+{% block content %}
+
+{% if profile_updated %}
+<div class="alert" style="background: #e7f6ee; color: var(--green); border: 1px solid #c3e6cb; margin-bottom: 20px;">
+  ✓ Your personal profile details have been updated successfully.
+</div>
+{% endif %}
+
+{% if created %}
+<div class="alert" style="background: #e7f6ee; color: var(--green); border: 1px solid #c3e6cb; margin-bottom: 20px;">
+  ✓ New administrator account created with assigned operational privileges.
+</div>
+{% endif %}
+
+{% if permissions_updated %}
+<div class="alert" style="background: #e7f6ee; color: var(--green); border: 1px solid #c3e6cb; margin-bottom: 20px;">
+  ✓ Administrator privileges updated successfully. Changes are active immediately.
+</div>
+{% endif %}
+
+<!-- Section 1: My Personal Details / Profile -->
+<section class="panel" style="margin-bottom: 24px;">
+  <div class="panel-head">
+    <div>
+      <h2>👤 My Personal Details ({{ admin.display_name }})</h2>
+      <p class="muted" style="margin-top: 4px; font-size: 13px;">Manage your administrator name, contact phone, and master password.</p>
+    </div>
+    <div>
+      <span class="status-chip green">{{ admin.role.value.replace('_', ' ').title() }}</span>
+    </div>
+  </div>
+
+  <form method="post" action="/admins/profile" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 14px;">
+    <input type="hidden" name="form_token" value="{{ csrf_token }}">
+
+    <div>
+      <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">First Name</label>
+      <input name="first_name" value="{{ current_profile.first_name or admin.display_name.split(' ')[0] }}" required maxlength="100" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff;">
+    </div>
+
+    <div>
+      <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">Last Name</label>
+      <input name="last_name" value="{{ current_profile.last_name or (admin.display_name.split(' ')[1:] | join(' ')) }}" required maxlength="100" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff;">
+    </div>
+
+    <div>
+      <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">Phone Number</label>
+      <input name="phone" value="{{ current_profile.phone or '' }}" placeholder="e.g. +27 82 123 4567" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff;">
+    </div>
+
+    <div>
+      <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">Email (Authenticated)</label>
+      <input value="{{ admin.email }}" disabled style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0; background: #f1f5f9; color: #64748b; cursor: not-allowed;">
+    </div>
+
+    <div>
+      <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">New Password (Optional)</label>
+      <input name="new_password" type="password" minlength="12" placeholder="Leave blank to keep current" autocomplete="new-password" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff;">
+    </div>
+
+    <div style="align-self: end;">
+      <button class="button primary" type="submit" style="width: 100%; height: 38px;">💾 Save Profile Changes</button>
+    </div>
+  </form>
+</section>
+
+<!-- Section 2: All Platform Administrators Table -->
+<section class="panel" style="margin-bottom: 24px;">
+  <div class="panel-head">
+    <div>
+      <h2>🛡️ Platform Administrators & Access Control</h2>
+      <p class="muted" style="margin-top: 4px; font-size: 13px;">As Super Admin, you can grant, fine-tune, or revoke individual task privileges for any administrator.</p>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Administrator</th>
+        <th>Email & Contact</th>
+        <th>Base Role</th>
+        <th>Operational Privileges</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in admins %}
+      {% set profile = row.profiles or {} %}
+      {% set is_self = (row.user_id == admin.user_id) %}
+      {% set is_super = (row.admin_role == 'SUPER_ADMIN') %}
+      {% set perms = row.effective_permissions or [] %}
+      <tr>
+        <td>
+          <strong>{{ profile.first_name }} {{ profile.last_name }}</strong>
+          {% if is_self %}<span class="status-chip blue" style="font-size: 11px; margin-left: 6px;">You</span>{% endif %}
+          <br><code class="muted" style="font-size: 11px;">{{ row.user_id }}</code>
+        </td>
+        <td>
+          <div>{{ row.email or '-' }}</div>
+          {% if profile.phone %}<div class="muted" style="font-size: 12px;">{{ profile.phone }}</div>{% endif %}
+        </td>
+        <td>
+          <span class="status-chip {{ 'purple' if is_super else 'blue' }}">
+            {{ row.admin_role.replace('_', ' ').title() }}
+          </span>
+        </td>
+        <td>
+          {% if is_super %}
+          <span class="status-chip green" style="font-size: 11px;">⭐ Full Super Admin Authority</span>
+          {% else %}
+          <div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 380px;">
+            {% for p in perms %}
+            {% if p != 'dashboard:view' %}
+            <span class="status-chip" style="font-size: 10px; background: #f1f5f9; color: #334155; padding: 2px 6px;">
+              {{ permission_labels.get(p, p) }}
+            </span>
+            {% endif %}
+            {% endfor %}
+            {% if perms | length <= 1 %}
+            <span class="muted" style="font-size: 11px; color: #b42318;">No extra privileges granted</span>
+            {% endif %}
+          </div>
+          {% endif %}
+        </td>
+        <td>
+          <span class="status-chip {{ 'green' if row.active else 'red' }}">
+            {{ 'Active' if row.active else 'Inactive' }}
+          </span>
+        </td>
+        <td>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="button" type="button" onclick="togglePermDrawer('{{ row.id }}')" style="padding: 4px 10px; font-size: 12px; background: #f8fafc;">
+              ⚙️ Privileges
+            </button>
+
+            {% if not is_self %}
+            <form method="post" action="/admins/{{ row.id }}/toggle" style="display: inline; margin: 0;">
+              <input type="hidden" name="active" value="{{ 'false' if row.active else 'true' }}">
+              <button class="button {{ 'danger' if row.active else 'primary' }}" type="submit" style="padding: 4px 8px; font-size: 12px;">
+                {{ 'Deactivate' if row.active else 'Activate' }}
+              </button>
+            </form>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+
+      <!-- Accordion Drawer for Editing Privileges -->
+      <tr id="drawer-{{ row.id }}" style="display: none; background: #f8fafc;">
+        <td colspan="6" style="padding: 20px; border-bottom: 2px solid #cbd5e1;">
+          <form method="post" action="/admins/{{ row.id }}/permissions" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px;">
+            <input type="hidden" name="form_token" value="{{ csrf_token }}">
+
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px;">
+              <div>
+                <h3 style="margin: 0; font-size: 16px;">🔑 Edit Operational Privileges for {{ profile.first_name }} {{ profile.last_name }}</h3>
+                <p class="muted" style="margin-top: 4px; font-size: 12px;">Selectively grant or revoke operational capabilities. Changes take effect on their next request.</p>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button type="button" class="button" style="padding: 4px 10px; font-size: 12px;" onclick="selectAllDrawerPerms('{{ row.id }}', true)">Select All</button>
+                <button type="button" class="button" style="padding: 4px 10px; font-size: 12px;" onclick="selectAllDrawerPerms('{{ row.id }}', false)">Revoke All</button>
+                <button type="button" class="button ghost" style="padding: 4px 10px; font-size: 12px;" onclick="togglePermDrawer('{{ row.id }}')">Close</button>
+              </div>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+              <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">Administrator Role</label>
+              <select name="role" id="drawer-role-{{ row.id }}" onchange="resetDrawerPreset('{{ row.id }}', this.value)" style="width: 260px; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;">
+                {% for role in roles %}
+                <option value="{{ role.value }}" {{ 'selected' if row.admin_role == role.value else '' }}>
+                  {{ role.value.replace('_', ' ').title() }}
+                </option>
+                {% endfor %}
+              </select>
+              <span class="muted" style="font-size: 12px; margin-left: 10px;">(Changing the role will auto-select the standard preset)</span>
+            </div>
+
+            <!-- Categorized Privileges Grid -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 20px;">
+              {% for category in permissions_catalog %}
+              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px;">
+                <div style="font-weight: 700; font-size: 13px; color: #1e293b; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                  <span>{{ category.icon }}</span>
+                  <span>{{ category.category }}</span>
+                </div>
+                <div style="display: grid; gap: 8px;">
+                  {% for item in category.permissions %}
+                  {% set is_checked = (item.id in perms) or (row.admin_role == 'SUPER_ADMIN') %}
+                  <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 12px; cursor: pointer; background: #fff; padding: 8px; border-radius: 4px; border: 1px solid #e2e8f0;">
+                    <input type="checkbox" name="permissions" value="{{ item.id }}" class="drawer-perm-{{ row.id }}" {{ 'checked' if is_checked else '' }} style="margin-top: 2px;">
+                    <div>
+                      <strong style="color: #0f172a; display: block;">{{ item.name }}</strong>
+                      <span class="muted" style="font-size: 11px; line-height: 1.3; display: block; margin-top: 2px;">{{ item.description }}</span>
+                    </div>
+                  </label>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+              <button type="button" class="button" onclick="togglePermDrawer('{{ row.id }}')">Cancel</button>
+              <button type="submit" class="button primary">💾 Save Privileges</button>
+            </div>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty-state">No administrators found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<!-- Section 3: Add New Administrator with Granular Privileges -->
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <h2>➕ Add New Administrator & Assign Privileges</h2>
+      <p class="muted" style="margin-top: 4px; font-size: 13px;">Create an admin account and selectively check the exact operational tasks they are authorized to perform.</p>
+    </div>
+  </div>
+
+  <form method="post" action="/admins" class="admin-form" style="margin-top: 16px;">
+    <input type="hidden" name="form_token" value="{{ csrf_token }}">
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px;">
+      <div>
+        <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">First Name</label>
+        <input name="first_name" required maxlength="100" autocomplete="given-name" placeholder="First name" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">Last Name</label>
+        <input name="last_name" required maxlength="100" autocomplete="family-name" placeholder="Last name" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">Admin Email</label>
+        <input name="email" type="email" required autocomplete="email" placeholder="admin@cleanlink.co.za" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">Temporary Password (min 12 chars)</label>
+        <input name="password" type="password" required minlength="12" autocomplete="new-password" placeholder="••••••••••••" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">Administrator Role Preset</label>
+        <select name="role" id="new-admin-role" required onchange="applyPreset(this.value)" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff;">
+          {% for role in roles %}
+          <option value="{{ role.value }}">{{ role.value.replace('_', ' ').title() }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <!-- Quick Presets Toolbar -->
+    <div style="background: #f1f5f9; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <span style="font-size: 12px; font-weight: 700; color: #475569;">Quick Preset:</span>
+        <button type="button" class="button" style="padding: 4px 8px; font-size: 12px;" onclick="applyPreset('SUPER_ADMIN')">⭐ Super Admin</button>
+        <button type="button" class="button" style="padding: 4px 8px; font-size: 12px;" onclick="applyPreset('VERIFICATION_ADMIN')">🪪 Verification</button>
+        <button type="button" class="button" style="padding: 4px 8px; font-size: 12px;" onclick="applyPreset('FINANCE_ADMIN')">💳 Finance</button>
+        <button type="button" class="button" style="padding: 4px 8px; font-size: 12px;" onclick="applyPreset('SUPPORT_ADMIN')">🎧 Support</button>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button type="button" class="button" style="padding: 4px 8px; font-size: 12px;" onclick="selectAllNewPerms(true)">✓ Select All</button>
+        <button type="button" class="button" style="padding: 4px 8px; font-size: 12px;" onclick="selectAllNewPerms(false)">✕ Clear All</button>
+      </div>
+    </div>
+
+    <!-- Privilege Selection Checkboxes -->
+    <h3 style="font-size: 14px; margin-bottom: 10px; color: #334155;">Task Privileges & Permissions Checklist</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 24px;">
+      {% for category in permissions_catalog %}
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px;">
+        <div style="font-weight: 700; font-size: 13px; color: #1e293b; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+          <span>{{ category.icon }}</span>
+          <span>{{ category.category }}</span>
+        </div>
+        <div style="display: grid; gap: 8px;">
+          {% for item in category.permissions %}
+          <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 12px; cursor: pointer; background: #fff; padding: 8px; border-radius: 4px; border: 1px solid #e2e8f0;">
+            <input type="checkbox" name="permissions" value="{{ item.id }}" class="new-admin-perm" style="margin-top: 2px;">
+            <div>
+              <strong style="color: #0f172a; display: block;">{{ item.name }}</strong>
+              <span class="muted" style="font-size: 11px; line-height: 1.3; display: block; margin-top: 2px;">{{ item.description }}</span>
+            </div>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div>
+      <button class="button primary" type="submit" style="padding: 10px 24px; font-size: 14px; height: 42px;">
+        ➕ Create Administrator & Grant Privileges
+      </button>
+    </div>
+  </form>
+</section>
+
+<script id="preset-map-data" type="application/json">{{ preset_map | tojson | safe }}</script>
+<script>
+var presetMap = JSON.parse(document.getElementById('preset-map-data').textContent || '{}');
+
+function togglePermDrawer(id) {
+  var row = document.getElementById('drawer-' + id);
+  if (!row) return;
+  row.style.display = (row.style.display === 'none' || !row.style.display) ? 'table-row' : 'none';
+}
+
+function selectAllDrawerPerms(adminId, checked) {
+  var boxes = document.querySelectorAll('.drawer-perm-' + adminId);
+  boxes.forEach(function(b) { b.checked = checked; });
+}
+
+function resetDrawerPreset(adminId, role) {
+  var perms = presetMap[role] || [];
+  var boxes = document.querySelectorAll('.drawer-perm-' + adminId);
+  boxes.forEach(function(b) {
+    b.checked = (role === 'SUPER_ADMIN') || perms.indexOf(b.value) !== -1;
+  });
+}
+
+function applyPreset(role) {
+  var select = document.getElementById('new-admin-role');
+  if (select) select.value = role;
+  var perms = presetMap[role] || [];
+  var boxes = document.querySelectorAll('.new-admin-perm');
+  boxes.forEach(function(b) {
+    b.checked = (role === 'SUPER_ADMIN') || perms.indexOf(b.value) !== -1;
+  });
+}
+
+function selectAllNewPerms(checked) {
+  var boxes = document.querySelectorAll('.new-admin-perm');
+  boxes.forEach(function(b) { b.checked = checked; });
+}
+
+// Initialise form checkboxes based on the default selected role preset
+document.addEventListener('DOMContentLoaded', function() {
+  var select = document.getElementById('new-admin-role');
+  if (select) {
+    applyPreset(select.value);
+  }
+});
+</script>
+{% endblock %}

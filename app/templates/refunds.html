@@ -1,0 +1,406 @@
+{% extends "base.html" %}
+{% block heading %}Refunds Management{% endblock %}
+{% block content %}
+
+{% if success %}
+<div class="alert" style="background: #e7f6ee; border-color: #a6e0c2; color: #0f6b45; margin-bottom: 18px; font-weight: 700;">
+  ✓ {{ success }}
+</div>
+{% endif %}
+
+{% if error %}
+<div class="alert danger" style="margin-bottom: 18px; font-weight: 700;">
+  ⚠️ {{ error }}
+</div>
+{% endif %}
+
+<!-- Top Header with Actions -->
+<div class="panel-head" style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+  <div>
+    <h2 style="margin: 0; font-size: 20px;">Refund Requests & Direct Issuance</h2>
+    <p class="muted" style="margin: 4px 0 0; font-size: 13px;">Manage client refund requests, process adjustments, and issue refunds directly to payments.</p>
+  </div>
+  <div style="display: flex; gap: 10px; align-items: center;">
+    {% if admin.has_permission('finance:manage') or admin.has_permission('refunds:manage') %}
+    <button type="button" class="button primary" style="font-weight: 800; font-size: 13px; padding: 8px 18px;" onclick="openIssueRefundModal()">
+      + Issue Refund
+    </button>
+    {% endif %}
+    <a class="button" href="/refunds/export" style="font-size: 13px; padding: 8px 14px;">
+      📥 Export CSV
+    </a>
+  </div>
+</div>
+
+<!-- Metrics Overview -->
+<div class="metric-grid" style="margin-bottom: 20px;">
+  <div class="metric-card">
+    <span>Pending Review</span>
+    <strong style="color: #d97706;">{{ metrics.pending or 0 }}</strong>
+  </div>
+  <div class="metric-card">
+    <span>Approved Refunds</span>
+    <strong style="color: #15803d;">{{ metrics.approved or 0 }}</strong>
+  </div>
+  <div class="metric-card">
+    <span>Rejected</span>
+    <strong style="color: #b91c1c;">{{ metrics.rejected or 0 }}</strong>
+  </div>
+  <div class="metric-card">
+    <span>Total Refunded</span>
+    <strong style="color: #0f172a;">ZAR {{ "{:,.2f}".format(metrics.total_refunded_zar or 0) }}</strong>
+  </div>
+</div>
+
+<!-- Filter Tabs & Search -->
+<div style="display: flex; gap: 8px; margin-bottom: 18px; border-bottom: 1px solid var(--line); padding-bottom: 12px; align-items: center; flex-wrap: wrap;">
+  <a href="/refunds?status=all" class="button {{ 'primary' if selected_status == 'all' or not selected_status else '' }}" style="font-size: 13px; padding: 6px 14px;">
+    All Records ({{ metrics.all or 0 }})
+  </a>
+  <a href="/refunds?status=pending" class="button {{ 'primary' if selected_status == 'pending' else '' }}" style="font-size: 13px; padding: 6px 14px;">
+    ⏳ Pending ({{ metrics.pending or 0 }})
+  </a>
+  <a href="/refunds?status=approved" class="button {{ 'primary' if selected_status == 'approved' else '' }}" style="font-size: 13px; padding: 6px 14px;">
+    ✅ Approved ({{ metrics.approved or 0 }})
+  </a>
+  <a href="/refunds?status=rejected" class="button {{ 'primary' if selected_status == 'rejected' else '' }}" style="font-size: 13px; padding: 6px 14px;">
+    ❌ Rejected ({{ metrics.rejected or 0 }})
+  </a>
+
+  <form method="get" action="/refunds" style="margin-left: auto; display: flex; gap: 6px;">
+    <input type="hidden" name="status" value="{{ selected_status }}">
+    <input type="text" name="search" value="{{ search or '' }}" placeholder="Search refund ID, payment, requester..." style="padding: 6px 10px; font-size: 12px; border: 1px solid var(--line); border-radius: 6px; min-width: 240px;">
+    <button type="submit" class="button" style="padding: 6px 12px; font-size: 12px;">Search</button>
+    {% if search %}
+    <a href="/refunds?status={{ selected_status }}" class="button" style="padding: 6px 10px; font-size: 12px;">Clear</a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- Refunds Table Panel -->
+<section class="panel">
+  <table>
+    <thead>
+      <tr>
+        <th>Refund ID</th>
+        <th>Payment / Booking</th>
+        <th>Requester</th>
+        <th>Amount</th>
+        <th>Reason</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in refunds %}
+      <tr>
+        <td>
+          <strong>{{ row.id[:8] }}...</strong><br>
+          <span class="muted" style="font-size: 12px;">{{ row.created_at[:10] if row.created_at else '' }}</span>
+        </td>
+        <td>
+          <span style="font-size: 13px;">Payment: <code>{{ row.payment_id[:8] if row.payment_id else '-' }}</code></span>
+          {% if row.payment_total %}
+          <span class="muted" style="font-size: 11px;">(ZAR {{ row.payment_total }})</span>
+          {% endif %}
+          <br>
+          <span class="muted" style="font-size: 12px;">Booking: {{ row.booking_id[:8] if row.booking_id else '-' }}</span>
+        </td>
+        <td>
+          <strong style="color: #0f172a;">{{ row.requester_name or 'Client' }}</strong>
+          {% if row.requester_role %}
+          <br><span class="muted" style="font-size: 11px;">{{ row.requester_role }}</span>
+          {% endif %}
+        </td>
+        <td>
+          <strong style="font-size: 14px; color: #0f172a;">ZAR {{ "{:,.2f}".format(row.amount) if row.amount is number else row.amount }}</strong>
+        </td>
+        <td style="max-width: 260px; font-size: 13px;">
+          {{ row.reason }}
+        </td>
+        <td>
+          {% set st = (row.status or '').upper() %}
+          <span class="status-chip {{ 'green' if st in ['APPROVED', 'COMPLETED'] else 'red' if st == 'REJECTED' else 'amber' }}">
+            {{ st }}
+          </span>
+          {% if row.processed_at %}
+          <div class="muted" style="font-size: 11px; margin-top: 2px;">{{ row.processed_at[:10] }}</div>
+          {% endif %}
+        </td>
+        <td>
+          {% if st in ['REQUESTED', 'PENDING'] %}
+          <div style="display: flex; gap: 6px;">
+            <form method="post" action="/refunds/{{ row.id }}/approve" style="display: inline;" onsubmit="return confirm('Approve this refund of ZAR {{ row.amount }}? This will update the payment status and ledger.');">
+              <input type="hidden" name="reason" value="Approved by administrator">
+              <button class="button primary" type="submit" style="padding: 4px 10px; font-size: 12px; font-weight: 700;">✓ Approve</button>
+            </form>
+            <button type="button" class="button danger" style="padding: 4px 10px; font-size: 12px;" onclick="promptRejectRefund('{{ row.id }}', '{{ row.amount }}', '{{ row.requester_name }}')">
+              ✕ Reject
+            </button>
+          </div>
+          {% else %}
+          <span class="muted" style="font-size: 12px;">
+            {% if st in ['APPROVED', 'COMPLETED'] %}
+            ✅ Processed
+            {% elif st == 'REJECTED' %}
+            ❌ Declined
+            {% else %}
+            {{ st }}
+            {% endif %}
+          </span>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="7" class="empty-state" style="padding: 40px 20px; text-align: center;">
+          <div style="font-size: 36px; margin-bottom: 8px;">💳</div>
+          <h3 style="font-size: 16px; margin: 0 0 6px;">No refund records found</h3>
+          <p class="muted" style="font-size: 13px; margin: 0 0 14px;">There are no refund entries matching your filter.</p>
+          {% if admin.has_permission('finance:manage') or admin.has_permission('refunds:manage') %}
+          <button type="button" class="button primary" style="font-weight: 700;" onclick="openIssueRefundModal()">+ Issue a Refund</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<!-- Issue Refund Modal -->
+<div id="issueRefundModal" class="modal-overlay" onclick="closeIssueRefundModal(event)">
+  <div class="modal-box" style="width: min(580px, 95vw);" onclick="event.stopPropagation()">
+    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <h3 style="margin: 0; font-size: 17px; font-weight: 800;">💸 Issue a Refund</h3>
+      <button type="button" class="modal-close" onclick="closeIssueRefundModalDirect()">&times;</button>
+    </div>
+    <form id="issueRefundForm" method="post" action="/refunds/issue">
+      <div class="modal-body" style="padding: 18px 20px;">
+        <p class="muted" style="margin-top: 0; font-size: 13px; margin-bottom: 16px;">
+          Select a completed payment transaction and specify the amount to refund. Approving immediately will mark the payment as refunded and adjust the cleaner ledger accordingly.
+        </p>
+
+        <!-- Payment Selection -->
+        <div style="margin-bottom: 14px;">
+          <label style="display: block; font-weight: 700; font-size: 13px; margin-bottom: 6px;">Target Payment *</label>
+          <select id="modalPaymentSelect" name="payment_id" style="width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 9px; font-size: 13px;" onchange="onPaymentSelected()" required>
+            <option value="">-- Choose a paid transaction --</option>
+            {% for p in refundable_payments %}
+            <option value="{{ p.id }}" data-remaining="{{ p.remaining_refundable }}" data-total="{{ p.amount }}" data-payer="{{ p.payer_name }}" {{ 'selected' if target_payment_id == p.id else '' }}>
+              {{ p.payer_name }} &bull; ZAR {{ p.amount }} (Refundable: ZAR {{ p.remaining_refundable }}) &bull; {{ p.id[:8] }}
+            </option>
+            {% endfor %}
+            <option value="custom">-- Enter Custom Payment UUID --</option>
+          </select>
+        </div>
+
+        <!-- Custom Payment UUID Input (Hidden unless Custom is selected) -->
+        <div id="customPaymentDiv" style="display: none; margin-bottom: 14px;">
+          <label style="display: block; font-weight: 700; font-size: 13px; margin-bottom: 6px;">Custom Payment UUID *</label>
+          <input type="text" id="customPaymentId" style="width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 13px;" placeholder="e.g. 11111111-2222-3333-4444-555555555555">
+        </div>
+
+        <!-- Max Refundable Indicator -->
+        <div id="refundableNotice" style="display: none; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; font-size: 12px; color: #166534; justify-content: space-between; align-items: center;">
+          <span>Maximum refundable amount: <strong id="maxRefundableSpan">ZAR 0.00</strong></span>
+          <button type="button" class="btn-sm" style="padding: 2px 8px; font-size: 11px; font-weight: 700; cursor: pointer;" onclick="setFullRefund()">Set Max</button>
+        </div>
+
+        <!-- Refund Amount -->
+        <div style="margin-bottom: 14px;">
+          <label style="display: block; font-weight: 700; font-size: 13px; margin-bottom: 6px;">Refund Amount (ZAR) *</label>
+          <input type="number" id="modalRefundAmount" name="amount" step="0.01" min="0.01" style="width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 14px; font-weight: 700;" placeholder="0.00" required>
+        </div>
+
+        <!-- Refund Reason & Quick Presets -->
+        <div style="margin-bottom: 14px;">
+          <label style="display: block; font-weight: 700; font-size: 13px; margin-bottom: 6px;">Reason for Refund *</label>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;">
+            <button type="button" class="btn-sm" style="font-size: 11px; padding: 2px 8px;" onclick="setReason('Customer cancellation within eligible window')">Cancellation</button>
+            <button type="button" class="btn-sm" style="font-size: 11px; padding: 2px 8px;" onclick="setReason('Cleaner no-show / service unfulfilled')">No-show</button>
+            <button type="button" class="btn-sm" style="font-size: 11px; padding: 2px 8px;" onclick="setReason('Service quality complaint resolved by admin')">Quality Complaint</button>
+            <button type="button" class="btn-sm" style="font-size: 11px; padding: 2px 8px;" onclick="setReason('Duplicate charge / billing error')">Billing Error</button>
+          </div>
+          <textarea id="modalRefundReason" name="reason" rows="3" style="width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 13px; font-family: inherit; resize: vertical;" placeholder="Provide details explaining the rationale for this refund..." required></textarea>
+        </div>
+
+        <!-- Auto Approve Checkbox -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; margin-bottom: 14px; display: flex; align-items: center; gap: 10px;">
+          <input type="checkbox" id="modalAutoApprove" name="auto_approve" value="true" checked style="width: 16px; height: 16px; cursor: pointer;">
+          <div>
+            <label for="modalAutoApprove" style="font-weight: 700; font-size: 13px; cursor: pointer; display: block;">Approve & Process Immediately</label>
+            <span class="muted" style="font-size: 11px; display: block;">If unchecked, this refund will be added to the queue with status "REQUESTED" for secondary review.</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; background: #f8fafc; border-top: 1px solid var(--line);">
+        <button type="button" class="button" onclick="closeIssueRefundModalDirect()">Cancel</button>
+        <button type="submit" class="button primary" style="font-weight: 800; padding: 8px 18px;">Confirm & Issue Refund</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Rejection Reason Modal -->
+<div id="rejectRefundModal" class="modal-overlay" onclick="closeRejectRefundModal(event)">
+  <div class="modal-box" style="width: min(500px, 95vw);" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h3 id="rejectRefundModalTitle">Reject Refund Request</h3>
+      <button type="button" class="modal-close" onclick="closeRejectRefundModalDirect()">&times;</button>
+    </div>
+    <form id="rejectRefundForm" method="post" action="">
+      <div class="modal-body" style="padding: 18px 20px;">
+        <p class="muted" style="margin-top: 0; font-size: 13px;" id="rejectRefundModalDesc">
+          Specify why this refund request cannot be approved.
+        </p>
+        <div style="margin-bottom: 14px;">
+          <label style="display: block; font-weight: 700; font-size: 13px; margin-bottom: 6px;">Rejection Reason *</label>
+          <textarea id="rejectRefundReason" name="reason" rows="3" style="width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 13px; font-family: inherit; resize: vertical;" placeholder="e.g. Services were fully completed and confirmed by client." required></textarea>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button type="button" class="button" onclick="closeRejectRefundModalDirect()">Cancel</button>
+        <button type="submit" class="button danger" style="font-weight: 700;">Confirm Rejection</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openIssueRefundModal() {
+  var modal = document.getElementById('issueRefundModal');
+  if (modal) {
+    modal.classList.add('active');
+    modal.classList.add('open');
+    modal.style.display = 'grid';
+    document.body.style.overflow = 'hidden';
+    onPaymentSelected();
+  }
+}
+
+function closeIssueRefundModal(e) {
+  if (e.target && e.target.id === 'issueRefundModal') {
+    closeIssueRefundModalDirect();
+  }
+}
+
+function closeIssueRefundModalDirect() {
+  var modal = document.getElementById('issueRefundModal');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.classList.remove('open');
+    modal.style.display = 'none';
+  }
+  document.body.style.overflow = '';
+}
+
+function onPaymentSelected() {
+  var select = document.getElementById('modalPaymentSelect');
+  var customDiv = document.getElementById('customPaymentDiv');
+  var customInput = document.getElementById('customPaymentId');
+  var notice = document.getElementById('refundableNotice');
+  var maxSpan = document.getElementById('maxRefundableSpan');
+  var amountInput = document.getElementById('modalRefundAmount');
+
+  if (!select) return;
+
+  if (select.value === 'custom') {
+    if (customDiv) customDiv.style.display = 'block';
+    if (customInput) customInput.required = true;
+    if (notice) notice.style.display = 'none';
+  } else {
+    if (customDiv) customDiv.style.display = 'none';
+    if (customInput) customInput.required = false;
+
+    var selectedOpt = select.options[select.selectedIndex];
+    var remaining = selectedOpt ? parseFloat(selectedOpt.getAttribute('data-remaining') || '0') : 0;
+    if (remaining > 0) {
+      if (notice) notice.style.display = 'flex';
+      if (maxSpan) maxSpan.innerText = 'ZAR ' + remaining.toFixed(2);
+      if (amountInput && !amountInput.value) {
+        amountInput.value = remaining.toFixed(2);
+      }
+      if (amountInput) amountInput.max = remaining.toFixed(2);
+    } else {
+      if (notice) notice.style.display = 'none';
+    }
+  }
+}
+
+function setFullRefund() {
+  var select = document.getElementById('modalPaymentSelect');
+  var amountInput = document.getElementById('modalRefundAmount');
+  if (select && amountInput) {
+    var selectedOpt = select.options[select.selectedIndex];
+    var remaining = selectedOpt ? parseFloat(selectedOpt.getAttribute('data-remaining') || '0') : 0;
+    if (remaining > 0) {
+      amountInput.value = remaining.toFixed(2);
+    }
+  }
+}
+
+function setReason(text) {
+  var reasonBox = document.getElementById('modalRefundReason');
+  if (reasonBox) {
+    reasonBox.value = text;
+  }
+}
+
+// Intercept form submission to handle custom UUID if chosen
+document.getElementById('issueRefundForm').addEventListener('submit', function(e) {
+  var select = document.getElementById('modalPaymentSelect');
+  var customInput = document.getElementById('customPaymentId');
+  if (select && select.value === 'custom' && customInput) {
+    if (!customInput.value.trim()) {
+      e.preventDefault();
+      alert('Please enter a valid Payment UUID.');
+      customInput.focus();
+      return;
+    }
+    select.options[select.selectedIndex].value = customInput.value.trim();
+  }
+});
+
+function promptRejectRefund(refundId, amount, requester) {
+  document.getElementById('rejectRefundModalTitle').innerText = 'Reject Refund of ZAR ' + amount;
+  document.getElementById('rejectRefundModalDesc').innerText = 'Specify why the refund requested for ' + (requester || 'this client') + ' is rejected. This will be recorded in the audit trail.';
+  document.getElementById('rejectRefundForm').action = '/refunds/' + refundId + '/reject';
+  document.getElementById('rejectRefundReason').value = '';
+  var modal = document.getElementById('rejectRefundModal');
+  modal.classList.add('active');
+  modal.classList.add('open');
+  modal.style.display = 'grid';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeRejectRefundModal(e) {
+  if (e.target && e.target.id === 'rejectRefundModal') {
+    closeRejectRefundModalDirect();
+  }
+}
+
+function closeRejectRefundModalDirect() {
+  var modal = document.getElementById('rejectRefundModal');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.classList.remove('open');
+    modal.style.display = 'none';
+  }
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeIssueRefundModalDirect();
+    closeRejectRefundModalDirect();
+  }
+});
+
+{% if open_modal %}
+window.addEventListener('DOMContentLoaded', function() {
+  openIssueRefundModal();
+});
+{% endif %}
+</script>
+
+{% endblock %}

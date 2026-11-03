@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block heading %}Payments{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <h2>Payment Gateway Registry</h2>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 14px;">
+    {% for gateway in gateways %}
+    {% set code = gateway.code if gateway.code is defined else gateway.label %}
+    {% set name = gateway.name if gateway.name is defined else gateway.label %}
+    {% set is_active = gateway.active %}
+    <div style="border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #fafafa; display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <strong>{{ name }}</strong>
+        <div style="font-size: 12px; color: var(--muted);">
+          {{ 'Primary Gateway' if gateway.is_primary else 'Backup / Alt' }}
+        </div>
+      </div>
+      <form method="post" action="/payments/gateways/{{ code }}/toggle" style="display: inline;">
+        <input type="hidden" name="active" value="{{ 'false' if is_active else 'true' }}">
+        <button class="button {{ 'primary' if is_active else 'ghost' }}" type="submit" style="padding: 4px 10px; font-size: 12px;">
+          {{ 'Active' if is_active else 'Disabled' }}
+        </button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head" style="margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center;">
+    <div>
+      <h2 style="margin: 0;">Payment Transactions</h2>
+      <p class="muted" style="margin: 4px 0 0; font-size: 13px;">Audit all client payments, fees, cleaner allocations, and issue refunds.</p>
+    </div>
+    <div style="display: flex; gap: 10px; align-items: center;">
+      <a class="button" href="/payments/export">📥 Export CSV</a>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Payment ID</th>
+        <th>Payer (Client)</th>
+        <th>Payee (Cleaner)</th>
+        <th>Provider</th>
+        <th>Method</th>
+        <th>Status</th>
+        <th>Amount</th>
+        <th>Platform Fee</th>
+        <th>Cleaner Net</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in payments %}
+      <tr>
+        <td><strong>{{ row.id[:8] }}...</strong><br><span class="muted" style="font-size: 12px;">{{ row.created_at[:10] if row.created_at else '' }}</span></td>
+        <td>
+          <strong style="color: #0f172a;">{{ row.payer_name }}</strong>
+          {% if row.payer_role %}
+          <br><span class="muted" style="font-size: 11px;">{{ row.payer_role }}</span>
+          {% endif %}
+        </td>
+        <td>
+          <strong style="color: #0f172a;">{{ row.payee_name }}</strong>
+          {% if row.payee_role %}
+          <br><span class="muted" style="font-size: 11px;">{{ row.payee_role }}</span>
+          {% endif %}
+        </td>
+        <td>{{ row.payment_provider or 'Cash' }}</td>
+        <td>{{ row.payment_method }}</td>
+        <td>
+          <span class="status-chip {{ 'green' if row.status == 'PAID' else 'red' if row.status == 'FAILED' else 'blue' if row.status == 'REFUNDED' else 'amber' }}">
+            {{ row.status }}
+          </span>
+        </td>
+        <td><strong>{{ row.currency or 'ZAR' }} {{ row.amount }}</strong></td>
+        <td>{{ row.currency or 'ZAR' }} {{ row.platform_fee or 0 }}</td>
+        <td>{{ row.currency or 'ZAR' }} {{ row.cleaner_net_amount or 0 }}</td>
+        <td>
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            {% if row.status in ['PAID', 'PARTIALLY_REFUNDED'] and (admin.has_permission('finance:manage') or admin.has_permission('refunds:manage')) %}
+            <a href="/refunds?payment_id={{ row.id }}&open_modal=true" class="button" style="padding: 4px 8px; font-size: 12px; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; font-weight: 700; text-decoration: none;" title="Issue a full or partial refund for this payment">
+              💸 Refund
+            </a>
+            {% endif %}
+            <form method="post" action="/payments/{{ row.id }}/review" class="inline-form" style="display: inline;">
+              <input type="hidden" name="reason" value="Reviewed from admin dashboard">
+              <button class="button" type="submit" style="padding: 4px 8px; font-size: 12px;">Mark Reviewed</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="10" class="empty-state">No payment transactions found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

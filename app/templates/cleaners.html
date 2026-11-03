@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block heading %}Cleaners{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <h2>Cleaner Management</h2>
+    <div style="display: flex; gap: 10px; align-items: center;">
+      <a class="button" href="/cleaners/export">📥 Export CSV</a>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Verification</th>
+        <th>Subscription</th>
+        <th>Availability</th>
+        <th>Documents</th>
+        <th>Client Visibility</th>
+        <th>Rating</th>
+        <th>Jobs</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for cleaner in cleaners %}
+      {% set profile = cleaner.profiles or {} %}
+      {% set docs = cleaner.documents or [] %}
+      <tr>
+        <td><strong>{{ profile.first_name }} {{ profile.last_name }}</strong><br><span class="muted">{{ cleaner.id }}</span></td>
+        <td>
+          <span class="status-chip {{ 'green' if cleaner.verification_status == 'VERIFIED' else 'amber' if cleaner.verification_status == 'PENDING_REVIEW' else 'red' if cleaner.verification_status == 'SUSPENDED' else '' }}">
+            {{ cleaner.verification_status }}
+          </span>
+        </td>
+        <td><span class="status-chip {{ 'green' if cleaner.subscription_status == 'ACTIVE' else '' }}">{{ cleaner.subscription_status }}</span></td>
+        <td><span class="status-chip {{ 'green' if cleaner.availability_status == 'AVAILABLE' else '' }}">{{ cleaner.availability_status }}</span></td>
+        <td>
+          {% if docs %}
+          <details class="documents-dropdown" style="position: relative;">
+            <summary class="status-chip blue" style="cursor: pointer; display: inline-flex; align-items: center; gap: 5px; list-style: none;" title="Click to view & download documents">
+              <span>📁 {{ docs | length }} Files</span>
+              <span style="font-size: 10px;">▼</span>
+            </summary>
+            <div class="cleaner-docs-card" style="margin-top: 8px; background: #ffffff; border: 1px solid var(--line); border-radius: 8px; padding: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.12); min-width: 320px; max-width: 420px; z-index: 50; position: relative;">
+              <div style="font-size: 12px; font-weight: 800; color: #1e293b; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px;">
+                <span>Uploaded Documents</span>
+                <span class="status-chip green" style="font-size: 10px; padding: 1px 6px;">{{ docs | length }} on standby</span>
+              </div>
+              <div style="display: grid; gap: 8px;">
+                {% for doc in docs %}
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #f8fafc; border: 1px solid #eef2f6; border-radius: 6px; padding: 6px 8px;">
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 11px; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ doc.document_type_name }}">
+                      {% if doc.is_pdf %}📕{% elif doc.is_image %}🖼️{% else %}📄{% endif %} {{ doc.document_type_name }}
+                    </div>
+                    <div style="font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ doc.original_file_name }}">
+                      {{ doc.original_file_name }} &bull; {{ doc.file_size_display }} &bull; <span class="status-chip {{ 'green' if doc.status == 'APPROVED' else ('red' if doc.status == 'REJECTED' else 'amber') }}" style="min-height: 16px; padding: 1px 4px; font-size: 9px;">{{ doc.status }}</span>
+                    </div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                    <button type="button" class="btn-sm secondary" style="padding: 2px 6px; font-size: 11px; min-height: 24px;"
+                      data-preview-url="{{ doc.preview_url or doc.download_url }}"
+                      data-preview-title="{{ doc.document_type_name }} ({{ profile.first_name }} {{ profile.last_name }})"
+                      data-preview-filename="{{ doc.original_file_name }}"
+                      data-preview-is-pdf="{{ 'true' if doc.is_pdf else 'false' }}"
+                      onclick="previewDocElement(this)"
+                      title="Preview document in viewer">
+                      👁️ View
+                    </button>
+                    <a href="{{ doc.download_url }}" class="btn-sm primary" style="padding: 2px 8px; font-size: 11px; min-height: 24px;" title="Download document directly">
+                      ⬇️ Download
+                    </a>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </details>
+          {% else %}
+          <span class="muted" style="font-size: 12px;">⚠️ No docs</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if cleaner.visibility_checks %}
+            <details>
+              <summary>
+                <span class="status-chip {{ 'green' if cleaner.visible_to_clients else 'red' }}">
+                  {{ 'Visible' if cleaner.visible_to_clients else 'Hidden' }}
+                </span>
+              </summary>
+              <div class="visibility-checks">
+                {% for check in cleaner.visibility_checks %}
+                  <div class="{{ 'visibility-pass' if check.passed else 'visibility-fail' }}">
+                    <strong>{{ 'Pass' if check.passed else 'Fail' }}: {{ check.gate }}</strong>
+                    {% if not check.passed %}<span>{{ check.actual_value }}; needs {{ check.required_value }}</span>{% endif %}
+                    {% if not check.blocks_client_search %}<small>Booking/readiness gate</small>{% endif %}
+                  </div>
+                {% endfor %}
+              </div>
+            </details>
+          {% else %}
+            <span class="muted">Diagnostic unavailable</span>
+          {% endif %}
+        </td>
+        <td>★ {{ cleaner.overall_rating }}</td>
+        <td>{{ cleaner.completed_jobs_count }}</td>
+        <td>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            {% if cleaner.verification_status == 'SUSPENDED' or cleaner.availability_status == 'UNAVAILABLE' %}
+            <form method="post" action="/cleaners/{{ cleaner.id }}/activate" class="inline-form" style="display:inline;">
+              <input type="hidden" name="reason" value="Administrative activation">
+              <button class="button primary" type="submit" style="padding: 4px 10px; font-size: 13px;">Activate</button>
+            </form>
+            {% else %}
+            <form method="post" action="/cleaners/{{ cleaner.id }}/suspend" class="inline-form" style="display:inline;">
+              <input type="hidden" name="reason" value="Administrative suspension">
+              <button class="button danger" type="submit" style="padding: 4px 10px; font-size: 13px;">Suspend</button>
+            </form>
+            {% endif %}
+            <a class="button" href="/subscriptions?prefill_cleaner={{ cleaner.id }}" style="padding: 4px 8px; font-size: 12px;" title="Activate or renew subscription">💳 + Sub</a>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="empty-state">No cleaners found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<!-- Modal Document Viewer -->
+<div id="documentPreviewModal" class="modal-overlay" onclick="handleModalOverlayClick(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span id="modalFileIcon" style="font-size: 20px;">📄</span>
+        <div>
+          <h3 id="modalDocTitle" style="margin: 0; font-size: 15px; font-weight: 700;">Document Preview</h3>
+          <span id="modalDocFilename" style="font-size: 11px; color: var(--muted);"></span>
+        </div>
+      </div>
+      <button type="button" class="modal-close" onclick="closePreviewModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="modalDocBody">
+      <!-- Injected iframe or image -->
+    </div>
+    <div class="modal-footer">
+      <span class="muted" style="font-size: 12px;">Documents are verified against CleanLink verification guidelines.</span>
+      <div style="display: flex; gap: 8px;">
+        <a id="modalDownloadLink" href="#" target="_blank" rel="noopener" class="button primary" style="padding: 6px 14px; font-size: 13px; text-decoration: none;">
+          ⬇️ Download Document
+        </a>
+        <button type="button" class="button" onclick="closePreviewModal()" style="padding: 6px 14px; font-size: 13px;">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function previewDocElement(btn) {
+  const url = btn.getAttribute('data-preview-url');
+  const title = btn.getAttribute('data-preview-title') || 'Document';
+  const filename = btn.getAttribute('data-preview-filename') || '';
+  const isPdf = btn.getAttribute('data-preview-is-pdf') === 'true';
+
+  document.getElementById('modalDocTitle').textContent = title;
+  document.getElementById('modalDocFilename').textContent = filename;
+  document.getElementById('modalFileIcon').textContent = isPdf ? '📕' : '🖼️';
+  document.getElementById('modalDownloadLink').href = url;
+
+  const bodyEl = document.getElementById('modalDocBody');
+  bodyEl.innerHTML = '';
+
+  if (isPdf) {
+    const iframe = document.createElement('iframe');
+    iframe.src = url;
+    iframe.title = title;
+    bodyEl.appendChild(iframe);
+  } else {
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = title;
+    bodyEl.appendChild(img);
+  }
+
+  document.getElementById('documentPreviewModal').classList.add('open');
+}
+
+function closePreviewModal() {
+  document.getElementById('documentPreviewModal').classList.remove('open');
+  document.getElementById('modalDocBody').innerHTML = '';
+}
+
+function handleModalOverlayClick(e) {
+  if (e.target.id === 'documentPreviewModal') {
+    closePreviewModal();
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}CleanLink Admin{% endblock %}</title>
+  <link rel="icon" type="image/png" href="/static/cleanlink_logo.png">
+  <link rel="stylesheet" href="/static/admin.css?v=20261019_wallpaper">
+</head>
+<body>
+  {% if admin %}
+  <aside class="sidebar">
+    <a class="brand" href="/" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 10px;">
+      <img src="/static/cleanlink_logo.png" alt="CleanLink" width="34" height="34" class="brand-logo" style="width: 34px; height: 34px; min-width: 34px; max-width: 34px; min-height: 34px; max-height: 34px; object-fit: contain; flex-shrink: 0; display: block;">
+      <div class="brand-text" style="display: flex; flex-direction: column; line-height: 1.15;">
+        <span class="brand-title" style="font-size: 16px; font-weight: 800; color: #0f172a; letter-spacing: -0.2px;">CleanLink</span>
+        <span class="brand-sub" style="font-size: 10px; font-weight: 800; color: #178a5a; text-transform: uppercase; letter-spacing: 0.6px;">Admin Portal</span>
+      </div>
+    </a>
+    <nav class="nav">
+      {% if admin.has_permission('dashboard:view') %}
+      <a class="nav-link {{ 'active' if active_page == 'dashboard' else '' }}" href="/">Dashboard</a>
+      {% endif %}
+            {% if admin.has_permission('verification:review') or admin.has_permission('identity_verification.view') %}
+      <a class="nav-link {{ 'active' if active_page == 'verification' and entity != 'client' else '' }}" href="/verification">🧹 Cleaner Verification</a>
+      <a class="nav-link {{ 'active' if active_page == 'client_verification' or entity == 'client' else '' }}" href="/verification/clients">👤 Client Verification</a>
+      {% endif %}
+      {% if admin.has_permission('identity_verification.view') %}
+      <a class="nav-link {{ 'active' if active_page == 'client_identity' else '' }}" href="/identity-verification">📸 Photo Verification</a>
+      {% endif %}
+      {% if admin.has_permission('cleaners:view') or admin.has_permission('cleaners:manage') %}
+      <a class="nav-link {{ 'active' if active_page == 'cleaners' else '' }}" href="/cleaners">Cleaners</a>
+      {% endif %}
+      {% if admin.has_permission('users:view') or admin.has_permission('clients:manage') %}
+      <a class="nav-link {{ 'active' if active_page == 'users' else '' }}" href="/users">Users</a>
+      {% endif %}
+      {% if admin.has_permission('audit:view') %}
+      <a class="nav-link {{ 'active' if active_page == 'activity' else '' }}" href="/activity">Activity</a>
+      {% endif %}
+      {% if admin.has_permission('subscriptions:view') or admin.has_permission('subscriptions:manage') %}
+      <a class="nav-link {{ 'active' if active_page == 'subscriptions' else '' }}" href="/subscriptions">Subscriptions</a>
+      {% endif %}
+      {% if admin.has_permission('bookings:view') or admin.has_permission('bookings:manage') %}
+      <a class="nav-link {{ 'active' if active_page == 'bookings' else '' }}" href="/bookings">Bookings</a>
+      {% endif %}
+      {% if admin.has_permission('finance:view') or admin.has_permission('payments:review') %}
+      <a class="nav-link {{ 'active' if active_page == 'payments' else '' }}" href="/payments">Payments</a>
+      {% endif %}
+      {% if admin.has_permission('refunds:manage') or admin.has_permission('finance:manage') %}
+      <a class="nav-link {{ 'active' if active_page == 'refunds' else '' }}" href="/refunds">Refunds</a>
+      {% endif %}
+      {% if admin.has_permission('settings:view') or admin.has_permission('settings:manage') %}
+      <a class="nav-link {{ 'active' if active_page == 'settings' else '' }}" href="/settings">Settings</a>
+      {% endif %}
+      {% if admin.role.value == 'SUPER_ADMIN' %}
+      <a class="nav-link {{ 'active' if active_page == 'admins' else '' }}" href="/admins">Administrators</a>
+      {% endif %}
+    </nav>
+    <form method="post" action="/logout" class="logout-form">
+      <button type="submit" class="button ghost">Logout</button>
+    </form>
+  </aside>
+  {% endif %}
+  <main class="main {{ '' if admin else 'auth-main' }}">
+    {% if admin %}
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Role &bull; {{ admin.role.value.replace('_', ' ').title() }}</p>
+        <h1>{% block heading %}Dashboard{% endblock %}</h1>
+      </div>
+      <a href="/admins" class="admin-pill" style="text-decoration: none;" title="Edit Personal Details & Administrators">&#128100; {{ admin.display_name }}</a>
+    </header>
+    {% endif %}
+    {% if error %}<div class="alert">{{ error }}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

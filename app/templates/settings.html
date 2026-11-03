@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block heading %}System Settings{% endblock %}
+{% block content %}
+{% if updated %}
+<div class="alert" style="background: #e7f6ee; color: var(--green); border: 1px solid #c3e6cb; margin-bottom: 16px;">
+  Setting <strong>{{ updated }}</strong> was updated successfully.
+</div>
+{% endif %}
+<section class="panel">
+  <div class="panel-head" style="margin-bottom: 14px;">
+    <h2>Configuration & Platform Settings</h2>
+  </div>
+  <table>
+    <thead><tr><th>Key</th><th>Type</th><th>Current Value</th><th>Edit & Save</th><th>Description</th></tr></thead>
+    <tbody>
+      {% for row in settings %}
+      <tr>
+        <td><strong>{{ row.key }}</strong></td>
+        <td><span class="status-chip">{{ row.value_type }}</span></td>
+        <td><code>{{ row.value_json }}</code></td>
+        <td style="min-width: 250px;">
+          <form method="post" action="/settings/update" style="display: flex; gap: 8px; align-items: center;">
+            <input type="hidden" name="key" value="{{ row.key }}">
+            <input type="hidden" name="value_type" value="{{ row.value_type }}">
+            <input name="value" value="{{ row.edit_value | forceescape }}" style="flex: 1; padding: 6px 10px; font-size: 13px; border-radius: 4px; border: 1px solid var(--line);">
+            <button class="button primary" type="submit" style="padding: 6px 12px; font-size: 13px;">Save</button>
+          </form>
+        </td>
+        <td class="muted" style="font-size: 13px;">{{ row.description or '-' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="empty-state">No settings found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

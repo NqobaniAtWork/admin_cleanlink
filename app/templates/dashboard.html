@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block heading %}Dashboard{% endblock %}
+{% block content %}
+<section class="metric-grid">
+  {% for metric in metrics %}
+  <article class="metric-card">
+    <span>{{ metric.label }}</span>
+    <strong>{{ metric.value }}</strong>
+  </article>
+  {% else %}
+  <article class="empty-state">No dashboard metrics loaded.</article>
+  {% endfor %}
+</section>
+<section class="panel">
+  <div class="panel-head">
+    <h2>Operational Focus</h2>
+    <a class="button" href="/verification">Review Queue</a>
+  </div>
+  <div class="status-row">
+    <span class="status-chip amber">Verification</span>
+    <span class="status-chip green">Subscriptions</span>
+    <span class="status-chip red">Refunds</span>
+    <span class="status-chip blue">Cash Commission</span>
+  </div>
+</section>
+{% endblock %}

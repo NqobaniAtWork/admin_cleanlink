@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block heading %}Activity Log{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <h2>Administrative & Platform Activity Audit Trail</h2>
+  </div>
+  <form method="get" class="filter-form" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+    <input name="event_type" value="{{ event_type }}" placeholder="Filter by event (e.g. CLEANER_VERIFIED)" style="flex: 1; min-width: 200px;">
+    <input name="actor_id" value="{{ actor_id }}" placeholder="Filter by admin name, email, or UUID" style="flex: 1; min-width: 220px;">
+    <input name="target_type" value="{{ target_type }}" placeholder="Filter by target type" style="flex: 1; min-width: 180px;">
+    <button class="button primary" type="submit">Filter</button>
+    {% if event_type or actor_id or target_type %}
+    <a class="button" href="/activity">Clear</a>
+    {% endif %}
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 170px;">Timestamp</th>
+        <th>Event</th>
+        <th>Administrator / Actor</th>
+        <th>Target</th>
+        <th>Details / Reason</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in result.rows %}
+      <tr>
+        <td>
+          <div style="font-weight: 500; font-size: 13px;">{{ row.created_at[:10] if row.created_at else '-' }}</div>
+          <small class="muted" style="font-size: 11px;">{{ row.created_at[11:19] if row.created_at and row.created_at|length >= 19 else '' }} UTC</small>
+        </td>
+        <td>
+          <span class="status-chip {{ 'green' if 'VERIFIED' in row.action or 'ACTIVATED' in row.action else 'amber' if 'LOGIN' in row.action else 'red' if 'SUSPENDED' in row.action or 'REJECTED' in row.action else '' }}">
+            {{ row.action.replace('_', ' ').title() if row.action else 'Action' }}
+          </span>
+        </td>
+        <td>
+          <div style="font-weight: 600; color: var(--color-text); margin-bottom: 2px;">
+            {{ row.actor_name or 'System Administrator' }}
+          </div>
+          {% if row.actor_email %}
+          <div style="font-size: 12px; color: var(--color-muted); margin-bottom: 4px;">
+            {{ row.actor_email }}
+          </div>
+          {% endif %}
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <span class="status-chip blue" style="font-size: 11px; padding: 2px 7px;">
+              {{ (row.actor_role_label or row.actor_role or 'Admin').replace('_', ' ').title() }}
+            </span>
+            {% if row.actor_id or row.admin_user_id %}
+            <code style="font-size: 10px; color: var(--color-muted);" title="{{ row.actor_id or row.admin_user_id }}">
+              {{ (row.actor_id or row.admin_user_id)[:8] }}...
+            </code>
+            {% endif %}
+          </div>
+        </td>
+        <td>
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+            <span class="badge" style="font-size: 11px;">{{ (row.target_type or '').replace('_', ' ').title() }}</span>
+          </div>
+          {% if row.target_name %}
+          <div style="font-weight: 600; font-size: 13px; color: var(--color-text);">
+            {{ row.target_name }}
+          </div>
+          {% endif %}
+          {% if row.target_id %}
+          <code style="font-size: 10px; color: var(--color-muted);" title="{{ row.target_id }}">{{ row.target_id[:8] }}...</code>
+          {% endif %}
+        </td>
+        <td>
+          <div style="font-size: 13px; line-height: 1.4;">{{ row.display_reason or row.reason or (row.metadata.get('reason') if row.metadata is mapping else '') or '-' }}</div>
+          {% if row.metadata and row.metadata is mapping and row.metadata|length > 0 and (row.metadata.get('reason') != row.display_reason) %}
+          <details style="margin-top: 4px;">
+            <summary style="font-size: 11px; color: var(--color-primary); cursor: pointer;">View metadata</summary>
+            <pre style="font-size: 10px; margin-top: 4px; padding: 6px; background: rgba(0,0,0,0.03); border-radius: 4px; overflow-x: auto;">{{ row.metadata }}</pre>
+          </details>
+          {% elif row.new_state and row.new_state is mapping and not row.new_state.get('admin_action_id') %}
+          <details style="margin-top: 4px;">
+            <summary style="font-size: 11px; color: var(--color-primary); cursor: pointer;">View state</summary>
+            <pre style="font-size: 10px; margin-top: 4px; padding: 6px; background: rgba(0,0,0,0.03); border-radius: 4px; overflow-x: auto;">{{ row.new_state }}</pre>
+          </details>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="5" class="empty-state" style="text-align: center; padding: 40px 20px;">
+          <div style="font-size: 24px; margin-bottom: 8px;">📋</div>
+          <div style="font-weight: 600; font-size: 16px; margin-bottom: 4px;">No matching activity found</div>
+          <div class="muted" style="font-size: 13px;">Administrative actions (such as verifying cleaners, suspending accounts, or updating platform settings) will be automatically audited and recorded here.</div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="pagination" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+    <span class="muted">{{ result.count }} total events</span>
+    <div style="display: flex; gap: 8px;">
+      {% if page > 1 %}
+      <a class="button" href="?event_type={{ event_type }}&actor_id={{ actor_id }}&target_type={{ target_type }}&page={{ page-1 }}">← Previous</a>
+      {% endif %}
+      {% if page < result.pages %}
+      <a class="button" href="?event_type={{ event_type }}&actor_id={{ actor_id }}&target_type={{ target_type }}&page={{ page+1 }}">Next →</a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

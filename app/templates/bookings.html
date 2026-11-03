@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block heading %}Bookings{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head" style="margin-bottom: 14px;">
+    <h2>Booking Monitor & Actions</h2>
+    <div style="display: flex; gap: 10px; align-items: center;">
+      <a class="button" href="/bookings/export?status={{ status_filter }}">📥 Export CSV</a>
+    </div>
+  </div>
+  <form method="get" class="filter-form" style="display: flex; gap: 10px; margin-bottom: 16px;">
+    <select name="status">
+      <option value="">All statuses</option>
+      {% for val in ['REQUESTED','PENDING','ACCEPTED','CONFIRMED','IN_PROGRESS','COMPLETED','CANCELLED','DECLINED'] %}
+      <option value="{{ val }}" {{ 'selected' if status_filter == val else '' }}>{{ val.title() }}</option>
+      {% endfor %}
+    </select>
+    <button class="button primary" type="submit">Filter</button>
+  </form>
+  <table>
+    <thead><tr><th>Booking ID</th><th>Client</th><th>Cleaner</th><th>Service</th><th>Gross</th><th>Status</th><th>Booked On</th><th>Scheduled Time</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for row in bookings %}
+      <tr>
+        <td><strong>{{ row.id[:8] }}...</strong><br><span class="muted">{{ row.payment_method }}</span></td>
+        <td>{{ row.client_name }}</td>
+        <td>{{ row.cleaner_name }}</td>
+        <td>{{ row.service_name }}</td>
+        <td><strong>{{ row.currency or 'ZAR' }} {{ row.gross_amount }}</strong></td>
+        <td>
+          <span class="status-chip {{ 'green' if row.status == 'COMPLETED' or row.status == 'CONFIRMED' else 'red' if row.status == 'CANCELLED' or row.status == 'DECLINED' else 'blue' if row.status == 'IN_PROGRESS' else 'amber' }}">
+            {{ row.status }}
+          </span>
+        </td>
+        <td style="font-size: 13px;">{{ row.created_at[:16].replace('T', ' ') if row.created_at else '-' }}</td>
+        <td style="font-size: 13px;">{{ row.scheduled_start[:16].replace('T', ' ') if row.scheduled_start else '-' }}</td>
+        <td>
+          {% if row.status in ['REQUESTED','ACCEPTED','CONFIRMED','IN_PROGRESS'] %}
+          <div style="display: flex; gap: 6px;">
+            <form method="post" action="/bookings/{{ row.id }}/complete" style="display: inline;">
+              <input type="hidden" name="reason" value="Completed by admin override">
+              <button class="button primary" type="submit" style="padding: 4px 8px; font-size: 12px;">Complete</button>
+            </form>
+            <form method="post" action="/bookings/{{ row.id }}/cancel" style="display: inline;">
+              <input type="hidden" name="reason" value="Cancelled by admin">
+              <button class="button danger" type="submit" style="padding: 4px 8px; font-size: 12px;">Cancel</button>
+            </form>
+          </div>
+          {% else %}
+          <span class="muted" style="font-size: 12px;">-</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="empty-state">No bookings found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block heading %}Client Photo Verification{% endblock %}
+{% block content %}
+<section class="panel"><p>These checks link a live selfie or an approved alternative check to the signed-in client account. They do not establish legal identity. No raw biometric captures are shown here.</p>
+<p>Manual approval requires the documented process and an evidence reference from its secure case record. A client statement alone is insufficient.</p></section>
+<section class="panel"><h2>Account status</h2><div style="overflow-x:auto"><table><thead><tr><th>Client account</th><th>Status</th><th>Method</th><th>Verified</th><th>Expires</th><th>Provider reference</th></tr></thead><tbody>
+{% for row in states %}<tr><td>{{ row.user_id }}</td><td>{{ row.status }}</td><td>{{ row.method or 'Not available' }}</td><td>{{ row.verified_at or 'Not available' }}</td><td>{{ row.expires_at or 'Not available' }}</td><td>{{ row.provider }} / {{ row.provider_subject }}</td></tr>{% else %}<tr><td colspan="6">No client account checks on this page.</td></tr>{% endfor %}
+</tbody></table></div></section>
+<section class="panel"><h2>Manual reviews and decision history</h2>
+{% for row in reviews %}<article style="padding:16px 0;border-bottom:1px solid #ddd"><h3>{{ row.user_id }} &middot; {{ row.status }}</h3>
+<p>Reason: {{ row.reason }}. Submitted {{ row.created_at }}.</p><p>{{ row.client_note }}</p>
+{% if row.status == 'pending' and admin.has_permission('identity_verification.review') %}
+<form method="post" action="/identity-verification/{{ row.id }}/decision">
+<input type="hidden" name="form_token" value="{{ csrf_token }}">
+<label>Secure case evidence reference <input name="evidence_reference" minlength="8" maxlength="200" required></label>
+<label>Decision reason <textarea name="reason" minlength="8" maxlength="1000" required></textarea></label>
+<label><input type="checkbox" name="confirmed" value="true" required> I completed the approved alternative verification process and checked the secure evidence.</label>
+{% if admin.has_permission('identity_verification.approve') %}<button class="button" name="decision" value="approve">Approve account check</button>{% endif %}
+{% if admin.has_permission('identity_verification.reject') %}<button class="button danger" name="decision" value="reject">Reject account check</button>{% endif %}
+</form>
+{% else %}<p>Reviewer: {{ row.assigned_admin or 'Not available' }}. Process: {{ row.process_version or 'Not available' }}. Decision: {{ row.decision_reason or 'Not available' }}. At {{ row.decided_at or 'Not available' }}.</p>{% endif %}</article>
+{% else %}<p>No review cases on this page.</p>{% endfor %}</section>
+<section class="panel"><h2>Attempt history</h2><div style="overflow-x:auto"><table><thead><tr><th>Account</th><th>Status</th><th>Safe failure category</th><th>Created</th></tr></thead><tbody>
+{% for row in attempts %}<tr><td>{{ row.user_id }}</td><td>{{ row.status }}</td><td>{{ row.failure_category or 'Not available' }}</td><td>{{ row.created_at }}</td></tr>{% else %}<tr><td colspan="4">No attempts on this page.</td></tr>{% endfor %}
+</tbody></table></div></section>
+<section class="panel"><h2>Processor deletion requests</h2><p>Queueing a request does not delete provider data. Complete the processor's agreed deletion procedure and obtain confirmation before closing a task.</p>
+{% for row in deletions %}<article><p>{{ row.provider }} / {{ row.provider_subject }} &middot; {{ row.reason }} &middot; {{ row.created_at }}</p>
+{% if admin.has_permission('identity_verification.approve') %}<form method="post" action="/identity-verification/deletions/{{ row.id }}/confirm">
+<input type="hidden" name="form_token" value="{{ csrf_token }}"><label>Provider confirmation reference <input name="confirmation_reference" minlength="8" maxlength="200" required></label>
+<label><input type="checkbox" name="confirmed" value="true" required> The provider confirmed erasure through the approved process.</label><button class="button">Record confirmed deletion</button></form>{% endif %}</article>
+{% else %}<p>No pending deletion tasks on this page.</p>{% endfor %}</section>
+<nav>{% if page>0 %}<a href="?page={{ page-1 }}">Previous page</a>{% endif %} <a href="?page={{ page+1 }}">Next page</a></nav>
+{% endblock %}
