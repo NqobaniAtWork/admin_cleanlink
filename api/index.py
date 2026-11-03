@@ -2,10 +2,12 @@ import os
 import sys
 from pathlib import Path
 
-# Ensure app directory is on Python path
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# Ensure root directory is on Python path so 'app' is importable
+root_path = Path(__file__).resolve().parent.parent
+if str(root_path) not in sys.path:
+    sys.path.insert(0, str(root_path))
 
 from app.main import app
 
-# Vercel Serverless Function entry point
-handler = app
+# Vercel ASGI entry point
+app = app
